@@ -17,7 +17,7 @@ Always on, served by the local MCP server as `mcp__tars__<name>`. Each is a fact
 | `telegram_add_reaction` | React to a message with an emoji — often better than an "ok" reply in groups. |
 | `telegram_create_poll` | Send a poll: regular or quiz, multi-answer, anonymous or not, auto-close, reply-to. |
 | `telegram_stop_poll` | Close a poll early and return the tallies. |
-| `telegram_read_attachment` | Read a photo or document the user sent. The dispatcher saves attachments under `data/attachments/` and marks them `[attachment: <path> …]`. Images come back as image blocks (the bot sees them), text files as UTF-8, PDFs as their text with `--- page N ---` markers; text and PDFs cap at 64 KiB. Telegram's GIF animations and videos aren't supported. |
+| `telegram_read_attachment` | Read a photo or document the user sent. The dispatcher saves attachments under `data/attachments/` and marks them `[attachment: <path> …]`. Images come back as image blocks (the bot sees them), text files as UTF-8, PDFs as their text with `--- page N ---` markers; text and PDFs cap at 64 KiB. Voice notes, audio and video are saved and marked too, but not readable here — pass their path to a transcription MCP (a GIF arrives as a silent video). |
 | `telegram_send_memory_document` | Send a memory file as a downloadable document. |
 | `render_html` | Render HTML to a PNG in `data/renders/` with headless Chromium — for tables, charts and diffs Markdown can't hold. No network: inline any CSS/JS. |
 | `render_latex` | Render a LaTeX expression (without `$$`) to a PNG via KaTeX, loaded from `cdn.jsdelivr.net` only. |

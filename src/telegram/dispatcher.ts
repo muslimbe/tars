@@ -23,7 +23,7 @@ export interface EnginePort {
 /** Handles a recognised command; true when it was one of ours (and so consumed for everyone). */
 export type CommandHandler = (ctx: Context, command: { name: string; args: string[] }) => Promise<boolean>;
 
-/** Adds attachment markers to an allowed message's text (photos, documents). */
+/** Adds attachment markers to an allowed message's text (photos, documents, voice, audio, video). */
 export type AttachmentIngest = (msg: Message, cm: ChatMessage) => Promise<void>;
 
 export interface DispatcherOptions {
@@ -86,7 +86,7 @@ export class Dispatcher {
     await this.o.engine.submit(cm);
   }
 
-  /** An edit carrying none of text/caption/photo/document (e.g. a live-location update). */
+  /** An edit carrying no text, caption or file (e.g. a live-location update). */
   private onEdited(msg: Message): void {
     this.rememberTitle(msg.chat);
     const userId = msg.from?.id ?? 0;
@@ -143,5 +143,5 @@ export class Dispatcher {
   }
 }
 
-/** Text, a caption, a photo or a document: what the message pipeline handles. */
-const hasContent = (msg: Message) => Boolean(msg.text || msg.caption || msg.photo?.length || msg.document);
+/** Text, a caption, or a file the attachment step saves: what the message pipeline handles. */
+const hasContent = (msg: Message) => Boolean(msg.text || msg.caption || msg.photo?.length || msg.document || msg.voice || msg.audio || msg.video || msg.video_note);

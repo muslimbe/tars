@@ -85,6 +85,26 @@ describe('attachment ingest', () => {
     expect(t.log.text()).toContain('attachment rejected chat=111 msg=110 filename=README mime=text/plain reason=unsupported_type');
   });
 
+  it('saves voice notes, audio, video and video notes, naming them when Telegram gave no name', async () => {
+    const t = setup();
+    const file = (file_id: string, extra: Record<string, unknown> = {}) => ({ file_id, file_unique_id: file_id, duration: 3, file_size: 5, ...extra });
+    for (const id of ['v', 'a', 'vid', 'vn']) t.files.set(id, 'bytes');
+    const at = (name: string) => join(t.dir, '111', name);
+    expect(await t.ingest({ voice: file('v') }, '', 10)).toBe(`[attachment: ${at('10_voice_10.ogg')} type=audio/ogg size=5B filename=voice_10.ogg]`);
+    expect(await t.ingest({ audio: file('a', { file_name: 'talk.mp3', mime_type: 'audio/mpeg' }) }, '', 11)).toBe(`[attachment: ${at('11_talk.mp3')} type=audio/mpeg size=5B filename=talk.mp3]`);
+    expect(await t.ingest({ video: file('vid', { width: 1, height: 1 }) }, '', 12)).toBe(`[attachment: ${at('12_video_12.mp4')} type=video/mp4 size=5B filename=video_12.mp4]`);
+    expect(await t.ingest({ video_note: file('vn', { length: 1 }) }, '', 13)).toBe(`[attachment: ${at('13_video_note_13.mp4')} type=video/mp4 size=5B filename=video_note_13.mp4]`);
+    expect(t.log.text()).toContain(`INFO attachment saved chat=111 msg=10 path=${at('10_voice_10.ogg')} size=5 kind=media`);
+  });
+
+  it('accepts audio and video documents by extension or audio/* and video/* MIME', async () => {
+    const t = setup();
+    expect(await t.ingest(doc('meeting.m4a'), '', 20)).toContain('type=application/octet-stream size=');
+    expect(await t.ingest(doc('blob', 'audio/x-wav'), '', 21)).toContain('type=audio/x-wav size=');
+    expect(await t.ingest(doc('clip.bin', 'video/quicktime'), '', 22)).toContain('type=video/quicktime size=');
+    expect(t.log.text()).not.toContain('reason=unsupported_type');
+  });
+
   it('refuses unsupported types first, then files over the size cap, without downloading', async () => {
     const t = setup();
     expect(await t.ingest(doc('big.pdf', undefined, 20_000_001))).toBe('[attachment rejected: filename=big.pdf reason=too_large size=19.1MB]');

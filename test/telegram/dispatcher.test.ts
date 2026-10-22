@@ -125,14 +125,14 @@ describe('dispatcher', () => {
     expect(t.submitted.map((m) => m.text)).toEqual(['beep']);
   });
 
-  it('takes text, captions, photos and documents; other media without a caption is ignored', async () => {
+  it('takes text, captions and files (voice included); a sticker without a caption is ignored', async () => {
     const t = setup();
     await t.send(dm(222), 222, '', { text: undefined, sticker: { file_id: 's', file_unique_id: 's', type: 'regular', width: 1, height: 1, is_animated: false, is_video: false } });
-    await t.send(dm(222), 222, '', { text: undefined, voice: { file_id: 'v', file_unique_id: 'v', duration: 1 } });
     expect(t.submitted).toEqual([]);
     expect(t.rows('messages')).toEqual([]);
+    await t.send(dm(222), 222, '', { text: undefined, voice: { file_id: 'v', file_unique_id: 'v', duration: 1 } });
     await t.send(dm(222), 222, '', { text: undefined, caption: 'listen', voice: { file_id: 'v', file_unique_id: 'v', duration: 1 } });
-    expect(t.submitted.map((m) => m.text)).toEqual(['listen']);
+    expect(t.submitted.map((m) => m.text)).toEqual(['', 'listen']);
   });
 
   it('logs the receipt (denied senders too) and the submit with its latency', async () => {

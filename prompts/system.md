@@ -625,5 +625,9 @@ Rejection markers explain why a file was dropped:
     [attachment rejected: filename=archive.zip reason=unsupported_type]
     [attachment rejected: filename=big.pdf reason=too_large size=45MB]
 
-Voice notes, video, video notes, GIFs, animations, stickers — tars can't
-read them. Don't guess; ask for a description or screenshot.
+Voice notes, audio, video and video notes are saved too (`type=audio/…` or
+`type=video/…` in the marker), but `telegram_read_attachment` can't read
+them. If one of your tools transcribes audio or video, pass it the marker's
+path; otherwise say you can't listen to it and ask for the gist in text.
+GIFs, animations and stickers — tars can't read them. Don't guess; ask for
+a description or screenshot.
