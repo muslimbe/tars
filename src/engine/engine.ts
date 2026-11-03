@@ -164,7 +164,7 @@ export class Engine {
   }
 
   private async open(text: string, batch: readonly ChatMessage[]): Promise<void> {
-    await this.o.typing.start(this.turn.activeChats);
+    await this.o.typing.start(new Set(humans(batch).flatMap((m) => (m.quiet ? [] : [m.chatId]))));
     this.logHotPath('worker-send', batch, this.turn.activeChats);
     await this.o.worker.send(text);
     this.markConsumed(batch);

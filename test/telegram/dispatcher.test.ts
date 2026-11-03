@@ -142,6 +142,16 @@ describe('dispatcher', () => {
     expect(t.submitted.at(-1)?.text).toBe('@owner_name please look');
   });
 
+  it('shows typing in a group only for messages that mention or reply to the bot', async () => {
+    const t = setup();
+    const group = { id: -100, type: 'supergroup', title: 'G' };
+    await t.send(group, 222, 'chatter');
+    await t.send(group, 222, '@tars_bot a question', { entities: [{ type: 'mention', offset: 0, length: 9 }] });
+    await t.send(dm(222), 222, 'a DM');
+    expect(t.submitted.map((m) => m.quiet)).toEqual([true, false, false]);
+    expect(t.primed).toEqual([-100, 222]);
+  });
+
   it('takes text, captions and files (voice included); a sticker without a caption is ignored', async () => {
     const t = setup();
     await t.send(dm(222), 222, '', { text: undefined, sticker: { file_id: 's', file_unique_id: 's', type: 'regular', width: 1, height: 1, is_animated: false, is_video: false } });

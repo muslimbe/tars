@@ -83,7 +83,8 @@ export class Dispatcher {
     await this.o.attachments(msg, cm);
     insertMessage(this.o.db, cm);
     upsertUser(this.o.db, cm);
-    this.o.engine.primeTyping(cm.chatId, cm.messageThreadId);
+    cm.quiet = msg.chat.type !== 'private' && !isAddressed(msg, { botId: me.id, botUsername: me.username, people: [] });
+    if (!cm.quiet) this.o.engine.primeTyping(cm.chatId, cm.messageThreadId);
     this.log.info(`hot-path stage=submit chat=${cm.chatId} msg=${cm.messageId} t_ms=${Math.trunc(performance.now() - receivedAt)}`);
     await this.o.engine.submit(cm);
   }

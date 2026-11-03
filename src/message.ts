@@ -19,4 +19,6 @@ export interface ChatMessage {
   receivedAt?: number | undefined;
   /** Input-normalisation transforms that fired; rendered as the envelope's `flags=`. */
   inputFlags?: ReadonlySet<InputFlag> | undefined;
+  /** A group message that neither mentions nor replies to the bot: no typing indicator, the bot may well stay silent. */
+  quiet?: boolean | undefined;
 }
