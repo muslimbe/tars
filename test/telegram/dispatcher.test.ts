@@ -148,7 +148,7 @@ describe('dispatcher', () => {
     await t.send(group, 222, 'chatter');
     await t.send(group, 222, '@tars_bot a question', { entities: [{ type: 'mention', offset: 0, length: 9 }] });
     await t.send(dm(222), 222, 'a DM');
-    expect(t.submitted.map((m) => m.quiet)).toEqual([true, false, false]);
+    expect(t.submitted.map((m) => m.audience)).toEqual(['none', 'you', undefined]);
     expect(t.primed).toEqual([-100, 222]);
   });
 

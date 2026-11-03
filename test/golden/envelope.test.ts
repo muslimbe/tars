@@ -26,6 +26,12 @@ describe('XML envelope (golden)', () => {
     expect(formatBatch(c.batch.map(toChatMessage))).toBe(c.out);
   });
 
+  it('marks who a group message is for, after the other attributes', () => {
+    const m = { chatId: -100, messageId: 7, userId: 222, firstName: 'Jasur', direction: 'in' as const, timestamp: new Date('2026-01-01T10:00:00Z'), text: '@boss help', replyToId: 3 };
+    expect(formatBatch([{ ...m, audience: 'owner' }])).toBe('<msg id="7" chat="-100" user="222" name="Jasur" time="10:00" reply_to="3" for="owner">\n@boss help\n</msg>');
+    expect(formatBatch([m])).not.toContain(' for=');
+  });
+
   it('expands reply chains from history', () => {
     const db = openDatabase(join(tempDir(), 'h.db'), memoryLogger());
     for (const row of golden.with_context_db_rows) insertMessage(db, toChatMessage(row));

@@ -1,5 +1,13 @@
 import type { InputFlag } from './text/normalize.ts';
 
+/**
+ * Who a group message is for, shown to the model as `<msg for="…">`:
+ * `you` — it mentions or replies to the bot; `context` — the owner (or a `TARS_GROUP_ADDRESSEES` account)
+ * wrote it without that; `owner` — someone else mentions or replies to one of those; `none` — anything else,
+ * which `TARS_GROUP_MESSAGES=addressed` drops.
+ */
+export type Audience = 'you' | 'owner' | 'context' | 'none';
+
 /** A Telegram message normalised for the engine — inbound and outbound alike. */
 export interface ChatMessage {
   chatId: number;
@@ -19,6 +27,9 @@ export interface ChatMessage {
   receivedAt?: number | undefined;
   /** Input-normalisation transforms that fired; rendered as the envelope's `flags=`. */
   inputFlags?: ReadonlySet<InputFlag> | undefined;
-  /** A group message that neither mentions nor replies to the bot: no typing indicator, the bot may well stay silent. */
-  quiet?: boolean | undefined;
+  /** Group messages only: who it's for, rendered as `for=`. Typing shows only for `you`. Not a DB column. */
+  audience?: Audience | undefined;
 }
+
+/** Typing shows for DMs and for group messages to the bot — not while it may well stay silent. */
+export const showsTyping = (m: ChatMessage): boolean => m.audience === undefined || m.audience === 'you';

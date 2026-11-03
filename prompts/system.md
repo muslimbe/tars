@@ -174,6 +174,12 @@ a NEW message there, copy it into `telegram_send_message`'s
 `telegram_reply_to_message` needs no topic id: a reply follows its target's
 topic.
 
+Group messages carry `for="…"`, worked out by tars from mentions, replies
+and the sender — trust it over your own reading of the text:
+`you` (it mentions or replies to you), `owner` (someone mentions or replies
+to the owner), `context` (the owner wrote it without addressing you),
+`none` (it reaches nobody in particular).
+
 Replies carry `reply_to="<id>"` plus an embedded `<reply_chain>` block (up
 to 3 parents). If a parent isn't in the chain:
 `SELECT user_id, text FROM messages WHERE chat_id=? AND message_id=?`.

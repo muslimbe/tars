@@ -9,9 +9,9 @@ import { insertUnauthorized, hasRefusal } from '../db/unauthorized.ts';
 import { latestUsername, upsertUser } from '../db/users.ts';
 import type { Logger } from '../log/logger.ts';
 import type { Transcript } from '../log/transcript.ts';
-import type { ChatMessage } from '../message.ts';
+import { type Audience, type ChatMessage, showsTyping } from '../message.ts';
 import { gate, loadAccess } from './access.ts';
-import { isAddressed } from './addressed.ts';
+import { audienceOf } from './addressed.ts';
 import { checkRateLimit } from './ratelimit.ts';
 import { chatTitle, commandOf, toChatMessage } from './updates.ts';
 
@@ -78,13 +78,12 @@ export class Dispatcher {
     this.log.info(`hot-path stage=receipt chat=${cm.chatId} msg=${cm.messageId} t_ms=0`);
     this.rememberTitle(msg.chat);
     if (!this.allowed(cm, msg.chat.type, true)) return this.onUnauthorized(cm, msg.chat.type);
-    if (!this.addressed(msg, me)) return this.log.info(`not addressed — dropping chat=${cm.chatId} msg=${cm.messageId}`);
+    if (!this.addressed(cm, msg, me)) return this.log.info(`not addressed — dropping chat=${cm.chatId} msg=${cm.messageId}`);
     if (!(await this.underRateLimit(cm, msg.chat.type))) return;
     await this.o.attachments(msg, cm);
     insertMessage(this.o.db, cm);
     upsertUser(this.o.db, cm);
-    cm.quiet = msg.chat.type !== 'private' && !isAddressed(msg, { botId: me.id, botUsername: me.username, people: [] });
-    if (!cm.quiet) this.o.engine.primeTyping(cm.chatId, cm.messageThreadId);
+    if (showsTyping(cm)) this.o.engine.primeTyping(cm.chatId, cm.messageThreadId);
     this.log.info(`hot-path stage=submit chat=${cm.chatId} msg=${cm.messageId} t_ms=${Math.trunc(performance.now() - receivedAt)}`);
     await this.o.engine.submit(cm);
   }
@@ -120,11 +119,17 @@ export class Dispatcher {
     return ok;
   }
 
-  /** `TARS_GROUP_MESSAGES=addressed` keeps group chatter that isn't for the bot, the owner or `TARS_GROUP_ADDRESSEES` away from the model. */
-  private addressed(msg: Message, me: UserFromGetMe): boolean {
-    if (this.o.config.groupMessages === 'all' || msg.chat.type === 'private') return true;
+  /** Marks who a group message is for; false when `TARS_GROUP_MESSAGES=addressed` drops it. */
+  private addressed(cm: ChatMessage, msg: Message, me: UserFromGetMe): boolean {
+    if (msg.chat.type === 'private') return true;
+    cm.audience = this.audience(msg, me);
+    return cm.audience !== 'none' || this.o.config.groupMessages === 'all';
+  }
+
+  /** Who a group message is for; the people are the owner and `TARS_GROUP_ADDRESSEES`. */
+  private audience(msg: Message, me: UserFromGetMe): Audience {
     const people = [this.o.config.ownerId, ...this.o.config.groupAddressees].map((id) => ({ id, username: latestUsername(this.o.db, id) }));
-    return isAddressed(msg, { botId: me.id, botUsername: me.username, people });
+    return audienceOf(msg, { botId: me.id, botUsername: me.username, people });
   }
 
   /** Denied: record it, and in a DM send the one-time refusal. Groups stay silent. */

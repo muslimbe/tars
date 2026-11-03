@@ -155,10 +155,10 @@ describe('engine: batching and turns', () => {
 
   it('shows no typing for a group message that is not for the bot', async () => {
     const quiet = setup();
-    await startTurn(quiet, msg('chatter', -100, { quiet: true }));
+    await startTurn(quiet, msg('chatter', -100, { audience: 'context' }));
     expect(quiet.typed).toEqual([]);
     const addressed = setup();
-    await startTurn(addressed, msg('@bot a question', -100));
+    await startTurn(addressed, msg('@bot a question', -100, { audience: 'you' }));
     expect(addressed.typed).toEqual([-100]);
   });
 });
