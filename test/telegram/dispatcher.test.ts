@@ -15,7 +15,7 @@ import { tempDir } from '../helpers/tmp.ts';
 
 const OWNER = 111;
 
-function setup(access: object = { policy: 'allowlist', allowed_users: [222], allowed_chats: [-100] }, rateLimitPerMin = 20) {
+function setup(access: object = { policy: 'allowlist', allowed_users: [222], allowed_chats: [-100] }, rateLimitPerMin = 20, groupMessages: 'all' | 'addressed' = 'all') {
   const dir = tempDir();
   writeFileSync(join(dir, 'access.json'), JSON.stringify(access));
   const fake = new FakeTelegram();
@@ -27,7 +27,7 @@ function setup(access: object = { policy: 'allowlist', allowed_users: [222], all
   const commands: string[] = [];
   const dispatcher = new Dispatcher({
     bot,
-    config: { ownerId: OWNER, accessPath: join(dir, 'access.json'), rateLimitPerMin },
+    config: { ownerId: OWNER, accessPath: join(dir, 'access.json'), rateLimitPerMin, groupMessages, groupAddressees: [444] },
     db,
     engine: { submit: (m) => Promise.resolve(void submitted.push(m)), primeTyping: (c) => void primed.push(c) },
     chatTitles: new Map(),
@@ -123,6 +123,23 @@ describe('dispatcher', () => {
     const t = setup();
     await t.bot.handleUpdate({ update_id: 70, message: { message_id: 5, date: 1, chat: { id: -100, type: 'supergroup', title: 'G' }, from: { id: 999_000, is_bot: true, first_name: 'Bot' }, text: 'beep' } });
     expect(t.submitted.map((m) => m.text)).toEqual(['beep']);
+  });
+
+  it('keeps only group messages for the bot, the owner or their extra addressees when told to, and never stores the rest', async () => {
+    const t = setup(undefined, 20, 'addressed');
+    const group = { id: -100, type: 'supergroup', title: 'G' };
+    await t.send(group, 222, 'chatter between colleagues');
+    await t.send(group, OWNER, 'the owner, untagged');
+    await t.send(group, 444, "the owner's second account, untagged");
+    await t.send(group, 222, '@owner_name please look', { entities: [{ type: 'mention', offset: 0, length: 11 }] });
+    await t.send(dm(222), 222, 'a DM is always for the bot');
+    expect(t.submitted.map((m) => m.text)).toEqual(['the owner, untagged', "the owner's second account, untagged", 'a DM is always for the bot']);
+    expect(t.rows('messages')).toHaveLength(3);
+    expect(t.log.text()).toContain('not addressed — dropping chat=-100 msg=1');
+    // Once the owner's @username is known from their own messages, tagging them counts.
+    await t.send(dm(OWNER), OWNER, 'hi', { from: { id: OWNER, is_bot: false, first_name: 'Owner', username: 'Owner_Name' } });
+    await t.send(group, 222, '@owner_name please look', { entities: [{ type: 'mention', offset: 0, length: 11 }] });
+    expect(t.submitted.at(-1)?.text).toBe('@owner_name please look');
   });
 
   it('takes text, captions and files (voice included); a sticker without a caption is ignored', async () => {

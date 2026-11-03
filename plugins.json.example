@@ -3,9 +3,11 @@
   "tool_groups": {
     "bash": false,
     "code": false,
+    "read": false,
     "subagents": false
   },
   "skills_disabled": [],
+  "writable_projects": [],
   "mcps": [
     {
         "name": "deepwiki",

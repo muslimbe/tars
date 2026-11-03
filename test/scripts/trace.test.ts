@@ -108,12 +108,12 @@ describe('choosing the bot session', () => {
     expect(empty.run('--latest')).toEqual({ code: 1, out: '', err: `no session files under ${empty.sessions}\n` });
   });
 
-  it('finds Claude Code\'s directory for the working directory, an emoji counting as two characters', () => {
+  it('finds Claude Code\'s directory for the bot\'s working directory, projects/, an emoji counting as two characters', () => {
     const root = tempDir();
     const cwd = join(root, 'my bot😀');
     mkdirSync(cwd);
     const home = join(root, 'home');
-    const sessions = join(home, '.claude', 'projects', `${realpathSync(root).replace(/[^A-Za-z0-9]/g, '-')}-my-bot--`);
+    const sessions = join(home, '.claude', 'projects', `${realpathSync(root).replace(/[^A-Za-z0-9]/g, '-')}-my-bot---projects`);
     mkdirSync(sessions, { recursive: true });
     writeFileSync(join(sessions, 'sid.jsonl'), `${JSON.stringify(BOT)}\n`);
     const result = spawnSync(process.execPath, [TRACE, '--latest'], { cwd, env: envWith({ HOME: home }), encoding: 'utf8' });

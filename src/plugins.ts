@@ -19,16 +19,18 @@ export interface McpPlugin {
 
 export interface Plugins {
   /** Only the groups the file mentions; absent means off. */
-  toolGroups: Partial<Record<'bash' | 'code' | 'subagents', boolean>>;
+  toolGroups: Partial<Record<'bash' | 'code' | 'read' | 'subagents', boolean>>;
   mcps: McpPlugin[];
   skillsDisabled: ReadonlySet<string>;
   builtinToolsDisabled: ReadonlySet<string>;
+  /** Folders under `projects/` the bot may edit, relative to it. */
+  writableProjects: readonly string[];
 }
 
 type Entry = Record<string, unknown>;
 
-const TOP_LEVEL_KEYS = ['builtin_tools_disabled', 'mcps', 'skills_disabled', 'tool_groups'];
-const TOOL_GROUP_KEYS = ['bash', 'code', 'subagents'];
+const TOP_LEVEL_KEYS = ['builtin_tools_disabled', 'mcps', 'skills_disabled', 'tool_groups', 'writable_projects'];
+const TOOL_GROUP_KEYS = ['bash', 'code', 'read', 'subagents'];
 const MCP_KEYS = ['allowed_tools', 'args', 'command', 'enabled', 'env', 'headers', 'name', 'type', 'url'];
 const MCP_REQUIRED = ['allowed_tools', 'enabled', 'name'];
 const TRANSPORTS = ['http', 'sse', 'stdio'];
@@ -45,7 +47,7 @@ const RESERVED_NAME = 'tars';
 export function loadPlugins(path: string, env: Readonly<Record<string, string | undefined>>, log: Logger): Plugins {
   if (!existsSync(path)) {
     logMissingFile(path, log);
-    return { toolGroups: {}, mcps: [], skillsDisabled: new Set(), builtinToolsDisabled: new Set() };
+    return { toolGroups: {}, mcps: [], skillsDisabled: new Set(), builtinToolsDisabled: new Set(), writableProjects: [] };
   }
   const data = parseJsonFile(path);
   if (!isRecord(data)) throw new Error(`${path}: top level must be a JSON object`);
@@ -58,6 +60,7 @@ export function loadPlugins(path: string, env: Readonly<Record<string, string | 
     mcps: buildMcps(mcps, env, log),
     skillsDisabled: validateStringList(data.skills_disabled, path, 'skills_disabled'),
     builtinToolsDisabled: validateStringList(data.builtin_tools_disabled, path, 'builtin_tools_disabled'),
+    writableProjects: validateWritable(data.writable_projects, path),
   };
 }
 
@@ -65,7 +68,8 @@ export function loadPlugins(path: string, env: Readonly<Record<string, string | 
 export function pluginsSummary(plugins: Plugins): string {
   return (
     `plugins loaded: ${plugins.mcps.length} enabled mcp(s), ${plugins.skillsDisabled.size} disabled skill(s), ` +
-    `${plugins.builtinToolsDisabled.size} disabled built-in tool(s), tool_groups=${JSON.stringify(plugins.toolGroups)}`
+    `${plugins.builtinToolsDisabled.size} disabled built-in tool(s), tool_groups=${JSON.stringify(plugins.toolGroups)}, ` +
+    `writable_projects=${JSON.stringify(plugins.writableProjects)}`
   );
 }
 
@@ -171,6 +175,18 @@ function checkAllowedTools(entry: Entry, name: string, path: string): void {
       throw new Error(`${path}: mcps[${JSON.stringify(name)}].allowed_tools[${j}] must be a non-empty string`);
     }
   });
+}
+
+/** Relative folders under `projects/`: no absolute paths, `..`, globs or empty segments. */
+function validateWritable(raw: unknown, path: string): string[] {
+  const dirs = [...validateStringList(raw, path, 'writable_projects')];
+  for (const dir of dirs) {
+    const segments = dir.split('/');
+    if (segments.some((s) => !s || s === '.' || s === '..' || /[*?[\]{}]/.test(s))) {
+      throw new Error(`${path}: writable_projects entry ${JSON.stringify(dir)} must be a plain folder path under projects/, like "billing/docs"`);
+    }
+  }
+  return dirs;
 }
 
 function validateStringList(raw: unknown, path: string, key: string): ReadonlySet<string> {

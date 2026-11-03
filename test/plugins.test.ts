@@ -50,11 +50,21 @@ describe('plugins.json (golden)', () => {
     for (const none of [{}, { args: null, env: null }, { args: [], env: {} }]) expect(load(none).mcps[0]).toMatchObject({ args: [], env: {} });
   });
 
+  it('takes writable_projects as plain folders under projects/ and refuses anything that could escape it', () => {
+    const load = (writable_projects: unknown) => loadPlugins(write({ writable_projects }), {}, memoryLogger());
+    expect(load(['billing/docs', 'notes']).writableProjects).toEqual(['billing/docs', 'notes']);
+    expect(load(undefined).writableProjects).toEqual([]);
+    for (const bad of ['../data', '/etc', 'billing/../..', 'billing/*', 'billing//docs', './billing', 'docs/']) {
+      expect(() => load([bad])).toThrow(`writable_projects entry ${JSON.stringify(bad)} must be a plain folder path under projects/`);
+    }
+    expect(() => load('billing')).toThrow('writable_projects must be an array');
+  });
+
   it('boots locked-down without a file, pointing at the example', () => {
     const dir = tempDir();
     writeFileSync(join(dir, 'plugins.json.example'), '{}');
     const log = memoryLogger();
-    expect(loadPlugins(join(dir, 'plugins.json'), {}, log)).toEqual({ toolGroups: {}, mcps: [], skillsDisabled: new Set(), builtinToolsDisabled: new Set() });
+    expect(loadPlugins(join(dir, 'plugins.json'), {}, log)).toEqual({ toolGroups: {}, mcps: [], skillsDisabled: new Set(), builtinToolsDisabled: new Set(), writableProjects: [] });
     expect(log.text()).toContain(`ERROR no plugins.json at ${join(dir, 'plugins.json')} — using locked-down defaults`);
   });
 
@@ -74,8 +84,8 @@ describe('plugins.json (golden)', () => {
   });
 
   it('summarises what it loaded for the boot log', () => {
-    const plugins = loadPlugins(write({ tool_groups: { bash: true, code: false }, skills_disabled: ['x'], builtin_tools_disabled: ['time_now', 'tool_list'] }), {}, memoryLogger());
-    expect(pluginsSummary(plugins)).toBe('plugins loaded: 0 enabled mcp(s), 1 disabled skill(s), 2 disabled built-in tool(s), tool_groups={"bash":true,"code":false}');
+    const plugins = loadPlugins(write({ tool_groups: { bash: true, code: false }, skills_disabled: ['x'], builtin_tools_disabled: ['time_now', 'tool_list'], writable_projects: ['billing/docs'] }), {}, memoryLogger());
+    expect(pluginsSummary(plugins)).toBe('plugins loaded: 0 enabled mcp(s), 1 disabled skill(s), 2 disabled built-in tool(s), tool_groups={"bash":true,"code":false}, writable_projects=["billing/docs"]');
     expect(pluginsSummary(loadPlugins(write({}), {}, memoryLogger()))).toContain('tool_groups={}');
   });
 });

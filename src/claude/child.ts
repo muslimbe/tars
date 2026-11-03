@@ -24,13 +24,13 @@ export interface ChildProcess {
 }
 
 /**
- * Spawn `argv` in its own process group (Claude Code starts MCP servers, which
- * must die with it) and stream stdout/stderr line by line. The environment is
+ * Spawn `argv` in `cwd`, in its own process group (Claude Code starts MCP servers, which
+ * must die with it), and stream stdout/stderr line by line. The environment is
  * inherited unchanged. This is the only module allowed to spawn processes.
  */
-export function spawnChild(argv: readonly string[], onStdout: (line: string) => void, onStderr: (line: string) => void): ChildProcess {
+export function spawnChild(argv: readonly string[], cwd: string, onStdout: (line: string) => void, onStderr: (line: string) => void): ChildProcess {
   const [command = '', ...args] = argv;
-  const child = spawn(command, args, { stdio: ['pipe', 'pipe', 'pipe'], detached: true });
+  const child = spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'], detached: true });
   // A dead child turns writes into EPIPE "error" events; unhandled, they would crash the app.
   child.stdin.on('error', () => {});
   const out = createInterface({ input: child.stdout, crlfDelay: Infinity });

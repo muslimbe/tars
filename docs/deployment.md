@@ -15,6 +15,7 @@ my-agent/                    # your private repo
 │   └── project.md           # the bot's name, language and persona
 ├── skills/                  # the framework's playbooks plus your own
 ├── memories/                # the bot's memory, committed like any file
+├── projects/                # docs and code the `read` tool group may read
 ├── plugins.json             # tools and external MCPs
 ├── access.json              # who may talk to the bot
 └── default-reminders.json   # recurring reminders
@@ -49,6 +50,7 @@ services:
       - ./prompts:/app/prompts
       - ./skills:/app/skills
       - ./memories:/app/memories
+      - ./projects:/app/projects:ro
       - ./plugins.json:/app/plugins.json
       - ./access.json:/app/access.json
       - ./default-reminders.json:/app/default-reminders.json:ro
@@ -94,6 +96,8 @@ Read once at boot (a variable already set in the environment wins over the file)
 | `CLAUDE_CODE_BIN` | `claude` | Name or path of the `claude` program. |
 | `TARS_DEBOUNCE_MS` | `0` | Wait this long after a message so a burst becomes one turn. |
 | `TARS_RATE_LIMIT_PER_MIN` | `20` | DMs per minute from one user; groups and the owner aren't limited. |
+| `TARS_GROUP_MESSAGES` | `all` | `addressed`: a group message reaches Claude only if the owner wrote it, or it mentions or replies to the bot or the owner; the rest is dropped unstored. Needs privacy mode off in BotFather, or Telegram won't deliver the owner mentions. |
+| `TARS_GROUP_ADDRESSEES` | — | Comma-separated user ids that `addressed` treats like the owner, e.g. the owner's work account. Owner rights stay with `TARS_OWNER_ID`. |
 | `TARS_ATTACHMENT_MAX_BYTES` | `20000000` | Largest inbound photo or document the bot will download. |
 | `TARS_BROWSER_HEADLESS` | `true` | `false` shows the browser window, for local debugging. |
 | `TARS_SELF_REFLECTION_ENABLED` | `true` | The daily self-reflection loop; `false` cancels it at the next boot. |
@@ -168,7 +172,7 @@ Tool groups, external MCPs and what to hide: see [tools.md](tools.md#pluginsjson
 
 ### BotFather
 
-Turn off "Allow groups" if strangers shouldn't add the bot to groups, and turn on "Bot to bot communication" if it should see other bots' messages.
+Turn off "Allow groups" if strangers shouldn't add the bot to groups, and turn on "Bot to bot communication" if it should see other bots' messages. With privacy mode on (the default), Telegram delivers only group messages that mention or reply to the bot; turn it off for `TARS_GROUP_MESSAGES` to see the rest.
 
 ## On a server
 

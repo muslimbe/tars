@@ -1244,7 +1244,7 @@
       "plugins": {
         "tools": {}
       },
-      "message": "<ROOT>/bad-unknown-top-key.json: unknown top-level key(s): [\"tools\"]; allowed: [\"builtin_tools_disabled\",\"mcps\",\"skills_disabled\",\"tool_groups\"]"
+      "message": "<ROOT>/bad-unknown-top-key.json: unknown top-level key(s): [\"tools\"]; allowed: [\"builtin_tools_disabled\",\"mcps\",\"skills_disabled\",\"tool_groups\",\"writable_projects\"]"
     },
     {
       "label": "tool-groups-not-object",
@@ -1260,7 +1260,7 @@
           "shell": true
         }
       },
-      "message": "<ROOT>/bad-unknown-group.json: tool_groups has unknown key(s): [\"shell\"]; allowed: [\"bash\",\"code\",\"subagents\"]"
+      "message": "<ROOT>/bad-unknown-group.json: tool_groups has unknown key(s): [\"shell\"]; allowed: [\"bash\",\"code\",\"read\",\"subagents\"]"
     },
     {
       "label": "group-not-bool",

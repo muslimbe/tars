@@ -17,7 +17,7 @@
 //
 // A message with no directives is answered with `echo: <text>`. Env knobs:
 // FAKE_CLAUDE_LOG (JSONL record of argv, stdin and tool calls; FAKE_CLAUDE_PROBE is
-// recorded with the argv to prove the environment is inherited),
+// recorded with the argv to prove the environment is inherited, and so is the cwd),
 // FAKE_CLAUDE_STALE (reject any --resume id), FAKE_CLAUDE_MCP_FAIL
 // (report the tars server as failed). The silent-stop nudge is answered with skip.
 import { randomUUID } from 'node:crypto';
@@ -40,7 +40,7 @@ const record = (entry: Record<string, unknown>) => {
 };
 const emit = (event: Record<string, unknown>) => process.stdout.write(`${JSON.stringify({ ...event, session_id: sessionId })}\n`);
 
-record({ kind: 'argv', argv, probe: process.env.FAKE_CLAUDE_PROBE });
+record({ kind: 'argv', argv, probe: process.env.FAKE_CLAUDE_PROBE, cwd: process.cwd() });
 if (resumeId && process.env.FAKE_CLAUDE_STALE) {
   // Like the real CLI, it takes a moment to reject the id, never reading the turn written to it meanwhile.
   await sleep(300);

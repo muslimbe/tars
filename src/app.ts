@@ -183,7 +183,7 @@ export class App {
 
   private prepareDisk(): void {
     const c = this.config;
-    const dirs = [c.dataDir, c.memoriesDir, c.ccLogsDir, c.attachmentsDir, c.rendersDir, c.logDir, join(c.dataDir, 'prompt_backups'), c.skillsDir];
+    const dirs = [c.dataDir, c.memoriesDir, c.ccLogsDir, c.attachmentsDir, c.rendersDir, c.logDir, join(c.dataDir, 'prompt_backups'), c.skillsDir, c.projectsDir];
     for (const dir of dirs) mkdirSync(dir, { recursive: true });
     pruneOldFiles(c.ccLogsDir);
     pruneOldFiles(c.rendersDir);

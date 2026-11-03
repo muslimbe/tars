@@ -8,8 +8,8 @@ import type { SpawnSpec } from './argv.ts';
 
 /** Everything `buildArgv` needs except the session, which changes as the worker learns it. */
 export function spawnSpec(
-  config: Pick<Config, 'claudeCodeBin' | 'model' | 'effort' | 'ownerId' | 'promptsDir'>,
-  plugins: Pick<Plugins, 'toolGroups' | 'mcps'>,
+  config: Pick<Config, 'claudeCodeBin' | 'model' | 'effort' | 'ownerId' | 'promptsDir' | 'projectsDir'>,
+  plugins: Pick<Plugins, 'toolGroups' | 'mcps' | 'writableProjects'>,
   wiring: { mcpConfigPath: string; toolNames: readonly string[]; indexes: () => { skills: string; memory: string } },
 ): (sessionId: string | undefined) => SpawnSpec {
   const groups = plugins.toolGroups;
@@ -27,6 +27,9 @@ export function spawnSpec(
       sessionId,
       enableBash: Boolean(groups.bash),
       enableCode: Boolean(groups.code),
+      enableRead: Boolean(groups.read),
+      projectsDir: config.projectsDir,
+      writableDirs: plugins.writableProjects.map((dir) => join(config.projectsDir, dir)),
       enableSubagents: Boolean(groups.subagents),
       mcpAllowedTools: plugins.mcps.flatMap((m) => m.allowedTools),
       tarsToolNames: wiring.toolNames,
@@ -47,6 +50,6 @@ export function loadSessionId(path: string, log: Logger): string | undefined {
 
 /** The fields of the worker's "spawning claude" log line. */
 export function spawnDescription(model: string, plugins: Pick<Plugins, 'toolGroups' | 'mcps'>): { model: string; enabled: string[]; mcpTools: number } {
-  const enabled = (['bash', 'code', 'subagents'] as const).filter((group) => plugins.toolGroups[group]);
+  const enabled = (['bash', 'code', 'read', 'subagents'] as const).filter((group) => plugins.toolGroups[group]);
   return { model, enabled, mcpTools: plugins.mcps.flatMap((m) => m.allowedTools).length };
 }

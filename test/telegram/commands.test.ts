@@ -45,7 +45,7 @@ function setup(access: object = { policy: 'owner_only', allowed_users: [], allow
     resetSession: () => Promise.resolve(void engine.calls.push('reset')),
   };
   const kills: string[] = [];
-  const config = { ownerId: OWNER, accessPath, rateLimitPerMin: 20, dataDir: dir, memoriesDir: join(dir, 'memories'), logDir: join(dir, 'logs') };
+  const config = { ownerId: OWNER, accessPath, rateLimitPerMin: 20, groupMessages: 'all' as const, groupAddressees: [], dataDir: dir, memoriesDir: join(dir, 'memories'), logDir: join(dir, 'logs') };
   let commands: CommandHandler = () => Promise.resolve(false);
   const dispatcher = new Dispatcher({
     bot,

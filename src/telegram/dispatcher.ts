@@ -1,16 +1,17 @@
 import type { Bot, Context } from 'grammy';
-import type { Message, Update } from 'grammy/types';
+import type { Message, Update, UserFromGetMe } from 'grammy/types';
 
 import type { Config } from '../config.ts';
 import type { Db } from '../db/database.ts';
 import { insertMessage, markEdited } from '../db/messages.ts';
 import { applyUserReaction } from '../db/reactions.ts';
 import { insertUnauthorized, hasRefusal } from '../db/unauthorized.ts';
-import { upsertUser } from '../db/users.ts';
+import { latestUsername, upsertUser } from '../db/users.ts';
 import type { Logger } from '../log/logger.ts';
 import type { Transcript } from '../log/transcript.ts';
 import type { ChatMessage } from '../message.ts';
 import { gate, loadAccess } from './access.ts';
+import { isAddressed } from './addressed.ts';
 import { checkRateLimit } from './ratelimit.ts';
 import { chatTitle, commandOf, toChatMessage } from './updates.ts';
 
@@ -28,7 +29,7 @@ export type AttachmentIngest = (msg: Message, cm: ChatMessage) => Promise<void>;
 
 export interface DispatcherOptions {
   bot: Bot;
-  config: Pick<Config, 'ownerId' | 'accessPath' | 'rateLimitPerMin'>;
+  config: Pick<Config, 'ownerId' | 'accessPath' | 'rateLimitPerMin' | 'groupMessages' | 'groupAddressees'>;
   db: Db;
   engine: EnginePort;
   chatTitles: Map<number, string>;
@@ -64,11 +65,11 @@ export class Dispatcher {
     const command = commandOf(msg, ctx.me.username);
     if (command && (await this.o.commands(ctx, command))) return;
     // Edits that still carry content re-enter as messages (backlog P13).
-    if (hasContent(msg)) return this.onMessage(ctx.update, msg);
+    if (hasContent(msg)) return this.onMessage(ctx.update, msg, ctx.me);
     if (ctx.editedMessage) this.onEdited(msg);
   }
 
-  private async onMessage(update: Update, msg: Message): Promise<void> {
+  private async onMessage(update: Update, msg: Message, me: UserFromGetMe): Promise<void> {
     const receivedAt = performance.now();
     const cm = toChatMessage(update, msg);
     if (!cm) return;
@@ -77,6 +78,7 @@ export class Dispatcher {
     this.log.info(`hot-path stage=receipt chat=${cm.chatId} msg=${cm.messageId} t_ms=0`);
     this.rememberTitle(msg.chat);
     if (!this.allowed(cm, msg.chat.type, true)) return this.onUnauthorized(cm, msg.chat.type);
+    if (!this.addressed(msg, me)) return this.log.info(`not addressed — dropping chat=${cm.chatId} msg=${cm.messageId}`);
     if (!(await this.underRateLimit(cm, msg.chat.type))) return;
     await this.o.attachments(msg, cm);
     insertMessage(this.o.db, cm);
@@ -115,6 +117,13 @@ export class Dispatcher {
       this.o.transcript.inbound(chat, user, { messageId: cm.messageId ?? 0, text: cm.text ?? '', replyToId: cm.replyToId }, ok);
     }
     return ok;
+  }
+
+  /** `TARS_GROUP_MESSAGES=addressed` keeps group chatter that isn't for the bot, the owner or `TARS_GROUP_ADDRESSEES` away from the model. */
+  private addressed(msg: Message, me: UserFromGetMe): boolean {
+    if (this.o.config.groupMessages === 'all' || msg.chat.type === 'private') return true;
+    const people = [this.o.config.ownerId, ...this.o.config.groupAddressees].map((id) => ({ id, username: latestUsername(this.o.db, id) }));
+    return isAddressed(msg, { botId: me.id, botUsername: me.username, people });
   }
 
   /** Denied: record it, and in a DM send the one-time refusal. Groups stay silent. */

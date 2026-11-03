@@ -14,6 +14,10 @@ const BASE_BUILTIN_TOOLS = ['WebFetch', 'WebSearch', 'StructuredOutput', 'ToolSe
 const TASK_TOOLS = ['TaskCreate', 'TaskGet', 'TaskList', 'TaskUpdate'];
 const BASH_TOOLS = ['Bash', 'PowerShell', 'Monitor'];
 const CODE_TOOLS = ['Edit', 'Write', 'Read', 'NotebookEdit', 'Glob', 'Grep', 'LSP'];
+/** The read-only slice of CODE_TOOLS, allowed only under `projects/` (see `fileRules`). */
+const READ_TOOLS = ['Read', 'Glob', 'Grep'];
+/** Allowed only under `writable_projects`; `Edit(path)` rules cover both. */
+const WRITE_TOOLS = ['Edit', 'Write'];
 const SUBAGENT_TOOLS = ['Agent', 'SendMessage'];
 /** Auto-approved regardless of tool groups: the tars MCP server and read-only web. */
 const BASE_ALLOWED_TOOLS = ['mcp__tars', 'WebFetch', 'WebSearch'];
@@ -33,6 +37,11 @@ export interface SpawnSpec {
   sessionId?: string | undefined;
   enableBash: boolean;
   enableCode: boolean;
+  enableRead: boolean;
+  /** Claude Code's working directory; the `read` group and `writable_projects` live under it. */
+  projectsDir: string;
+  /** Absolute folders under `projectsDir` the bot may edit. Writing implies reading. */
+  writableDirs: readonly string[];
   enableSubagents: boolean;
   /** `allowed_tools` of every enabled external MCP, in `plugins.json` order. */
   mcpAllowedTools: readonly string[];
@@ -82,15 +91,33 @@ function builtinTools(spec: SpawnSpec): string[] {
     ...BASE_BUILTIN_TOOLS,
     ...TASK_TOOLS,
     ...(spec.enableBash ? BASH_TOOLS : []),
-    ...(spec.enableCode ? CODE_TOOLS : []),
+    ...fileTools(spec),
     ...(spec.enableSubagents ? SUBAGENT_TOOLS : []),
   ];
 }
 
+/** `code` includes everything `read` gives. */
+function fileTools(spec: SpawnSpec): string[] {
+  if (spec.enableCode) return CODE_TOOLS;
+  const writes = spec.writableDirs.length > 0;
+  return [...(spec.enableRead || writes ? READ_TOOLS : []), ...(writes ? WRITE_TOOLS : [])];
+}
+
+/**
+ * The allow entries for the file tools. `code` allows them anywhere. Otherwise only path rules:
+ * a bare `Read` would let the bot read any file in the container, `.env` and the database included.
+ * Claude Code applies `Read(path)` to Glob and Grep and `Edit(path)` to Write.
+ */
+function fileRules(spec: SpawnSpec): string[] {
+  if (spec.enableCode) return CODE_TOOLS;
+  if (!fileTools(spec).length) return [];
+  return [`Read(/${spec.projectsDir}/**)`, ...spec.writableDirs.map((dir) => `Edit(/${dir}/**)`)];
+}
+
 /** Every gated tool lands in exactly one list — tools in neither are reachable via ToolSearch. */
 function toolLists(spec: SpawnSpec): { allowed: string[]; disallowed: string[] } {
-  const unlocked = [...(spec.enableBash ? BASH_TOOLS : []), ...(spec.enableCode ? CODE_TOOLS : [])];
-  const allowed = [...BASE_ALLOWED_TOOLS, ...unlocked, ...(spec.enableSubagents ? ['Agent'] : []), ...spec.mcpAllowedTools];
+  const unlocked = [...(spec.enableBash ? BASH_TOOLS : []), ...fileTools(spec)];
+  const allowed = [...BASE_ALLOWED_TOOLS, ...(spec.enableBash ? BASH_TOOLS : []), ...fileRules(spec), ...(spec.enableSubagents ? ['Agent'] : []), ...spec.mcpAllowedTools];
   const disallowed = [...DEFAULT_DISALLOWED_TOOLS.filter((t) => !unlocked.includes(t)), ...(spec.enableSubagents ? [] : ['Agent'])];
   return { allowed, disallowed };
 }

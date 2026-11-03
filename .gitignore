@@ -6,6 +6,7 @@ coverage/
 # Instance data: runtime state and the bot's memory (an agent repo tracks its own)
 data/
 memories/
+projects/
 
 # Env
 .env
@@ -19,6 +20,7 @@ prompts/project.md
 plugins.json
 access.json
 default-reminders.json
+docker-compose.override.yml
 
 # Editors
 .vscode/

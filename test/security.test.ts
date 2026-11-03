@@ -22,7 +22,7 @@ function spec(over: Partial<SpawnSpec> = {}): SpawnSpec {
   writeFileSync(join(dir, 'mcp.json'), '{}');
   return {
     binary: 'claude', model: 'm', effort: 'high', ownerId: 42, systemPromptPath: join(dir, 'prompts/system.md'), projectPromptPath: join(dir, 'prompts/project.md'),
-    subagentsPromptPath: join(dir, 'prompts/subagents.md'), mcpConfigPath: join(dir, 'mcp.json'), enableBash: false, enableCode: false, enableSubagents: false,
+    subagentsPromptPath: join(dir, 'prompts/subagents.md'), mcpConfigPath: join(dir, 'mcp.json'), enableBash: false, enableCode: false, enableRead: false, enableSubagents: false, projectsDir: '/app/projects', writableDirs: [],
     mcpAllowedTools: [], tarsToolNames: ['time_now'], skillsIndex: '', memoryIndex: '', ...over,
   };
 }
@@ -30,6 +30,8 @@ function spec(over: Partial<SpawnSpec> = {}): SpawnSpec {
 const flag = (argv: string[], name: string) => (argv[argv.indexOf(name) + 1] ?? '').split(',');
 const BASH = ['Bash', 'PowerShell', 'Monitor'];
 const CODE = ['Edit', 'Write', 'Read', 'NotebookEdit', 'Glob', 'Grep', 'LSP'];
+const READ = ['Read', 'Glob', 'Grep'];
+const WRITE = ['Edit', 'Write', 'NotebookEdit', 'LSP'];
 
 describe('security invariant 1: a locked-down claude argv', () => {
   it('allows only the base surface by default and denies every gated tool', () => {
@@ -52,6 +54,23 @@ describe('security invariant 1: a locked-down claude argv', () => {
       expect(flag(argv, '--disallowedTools')).not.toContain(tool);
     }
     for (const tool of stillDenied) expect(flag(argv, '--disallowedTools')).toContain(tool);
+  });
+
+  it('allows the read group only under projects/, never as a bare tool name', () => {
+    const argv = buildArgv(spec({ enableRead: true }));
+    expect(flag(argv, '--tools')).toEqual(expect.arrayContaining(READ));
+    for (const tool of WRITE) expect(flag(argv, '--tools')).not.toContain(tool);
+    // A bare `Read` lets Claude Code read any file in the container, .env and the database included.
+    expect(flag(argv, '--allowedTools')).toEqual(['mcp__tars', 'WebFetch', 'WebSearch', 'Read(//app/projects/**)']);
+    for (const tool of READ) expect(flag(argv, '--disallowedTools')).not.toContain(tool);
+    expect(flag(argv, '--disallowedTools')).toEqual(expect.arrayContaining([...BASH, ...WRITE, 'Agent']));
+  });
+
+  it('allows edits only in the writable folders, which also turn on reading', () => {
+    const argv = buildArgv(spec({ writableDirs: ['/app/projects/billing/docs'] }));
+    expect(flag(argv, '--tools')).toEqual(expect.arrayContaining([...READ, 'Edit', 'Write']));
+    expect(flag(argv, '--allowedTools')).toEqual(['mcp__tars', 'WebFetch', 'WebSearch', 'Read(//app/projects/**)', 'Edit(//app/projects/billing/docs/**)']);
+    expect(flag(argv, '--disallowedTools')).toEqual([...BASH, 'NotebookEdit', 'LSP', 'Agent']);
   });
 
   it('passes exactly the external MCP allow entries it is given', () => {
