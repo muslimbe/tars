@@ -6,6 +6,7 @@ import type { ParseMode } from 'grammy/types';
 import type { Config } from '../config.ts';
 import type { Db } from '../db/database.ts';
 import type { Logger } from '../log/logger.ts';
+import { PICKER, PICKER_TEXT } from './commands/access-ui.ts';
 import { accessText, allow, deny, setPolicy } from './commands/allowlist.ts';
 import { auditText } from './commands/audit.ts';
 import { healthText, type TurnState } from './commands/health.ts';
@@ -39,7 +40,7 @@ const COMMANDS: { command: string; description: string; run: Command }[] = [
   { command: 'audit', description: 'recent failures, backups, memory footprint', run: (ctx, _args, d) => reply(ctx, auditText(d.db, d.config), 'Markdown') },
   { command: 'logs', description: 'tail recent log lines: /logs [N]', run: (ctx, args, d) => logs(ctx, join(d.config.logDir, 'tars.log'), args) },
   { command: 'access', description: 'show access policy', run: (ctx, _args, d) => reply(ctx, accessText(d.config.accessPath, d.config.ownerId, d.log)) },
-  { command: 'allow', description: 'add to allowlist: /allow <user|group> <id>', run: (ctx, args, d) => reply(ctx, allow(d.config.accessPath, args, d.log)) },
+  { command: 'allow', description: 'add to allowlist: pick, or /allow <user|group> <id>', run: (ctx, args, d) => allowCommand(ctx, args, d) },
   { command: 'deny', description: 'remove from allowlist: /deny <user|group> <id>', run: (ctx, args, d) => reply(ctx, deny(d.config.accessPath, args, d.log)) },
   { command: 'policy', description: 'set policy: /policy <owner_only|allowlist|open>', run: (ctx, args, d) => reply(ctx, setPolicy(d.config.accessPath, args, d.log)) },
   { command: 'pause', description: 'drop inbound messages until /resume', run: (ctx, _args, d) => pause(ctx, d) },
@@ -72,6 +73,12 @@ export async function registerCommandMenu(api: Api, ownerId: number, log: Logger
   } catch (err) {
     log.error('failed to register owner-scoped bot commands', { err });
   }
+}
+
+/** Bare `/allow` in the owner's DM offers Telegram's user and group pickers; with arguments it adds by id. */
+async function allowCommand(ctx: Context, args: string[], deps: CommandDeps): Promise<void> {
+  if (args.length || ctx.chat?.type !== 'private') return reply(ctx, allow(deps.config.accessPath, args, deps.log));
+  await ctx.reply(PICKER_TEXT, { reply_markup: PICKER });
 }
 
 async function kill(ctx: Context, deps: CommandDeps): Promise<void> {

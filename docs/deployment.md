@@ -129,7 +129,7 @@ Who may talk to the bot. Re-read on every message, so edits apply at once; the o
 | `allowlist` | the owner and `allowed_users` | `allowed_chats` |
 | `open` | anyone | any group |
 
-A blocked message never reaches Claude, the history or memory; it's kept 30 days in `unauthorized_messages` so you can see who's asking. In a DM, the first blocked message gets a one-time "This is a private assistant" reply; blocked groups get nothing.
+A blocked message never reaches Claude, the history or memory; it's kept 30 days in `unauthorized_messages` so you can see who's asking. In a DM, the first blocked message gets a one-time "This is a private assistant" reply; blocked groups get nothing. The owner gets a chat's first blocked message too, with **Allow** and **Ignore** buttons.
 
 ### Owner commands
 
@@ -137,6 +137,7 @@ Only `TARS_OWNER_ID` can use them; for anyone else they silently do nothing. The
 
 ```
 /access                     policy and allowlists
+/allow                      in the owner's DM: Telegram's user and group pickers — no ids needed
 /allow user|group <id>      add to the allowlist
 /deny user|group <id>       remove from it
 /policy owner_only|allowlist|open

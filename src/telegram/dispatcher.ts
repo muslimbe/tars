@@ -5,13 +5,14 @@ import type { Config } from '../config.ts';
 import type { Db } from '../db/database.ts';
 import { insertMessage, markEdited } from '../db/messages.ts';
 import { applyUserReaction } from '../db/reactions.ts';
-import { insertUnauthorized, hasRefusal } from '../db/unauthorized.ts';
+import { hasRefusal, hasUnauthorized, insertUnauthorized } from '../db/unauthorized.ts';
 import { latestUsername, upsertUser } from '../db/users.ts';
 import type { Logger } from '../log/logger.ts';
 import type { Transcript } from '../log/transcript.ts';
 import { type Audience, type ChatMessage, showsTyping } from '../message.ts';
 import { gate, loadAccess } from './access.ts';
 import { audienceOf } from './addressed.ts';
+import type { AccessUi } from './commands/access-ui.ts';
 import { checkRateLimit } from './ratelimit.ts';
 import { chatTitle, commandOf, toChatMessage } from './updates.ts';
 
@@ -36,6 +37,8 @@ export interface DispatcherOptions {
   transcript: Transcript;
   log: Logger;
   commands: CommandHandler;
+  /** User/group pickers, blocked-chat notices and their buttons. */
+  accessUi: AccessUi;
   attachments: AttachmentIngest;
 }
 
@@ -55,8 +58,11 @@ export class Dispatcher {
   constructor(options: DispatcherOptions) {
     this.o = options;
     this.log = options.log;
+    // Registered first: a pick from the `/allow` keyboard never reaches the message pipeline.
+    options.bot.on(['message:users_shared', 'message:chat_shared'], (ctx) => this.o.accessUi.picked(ctx));
     options.bot.on(['message', 'edited_message'], (ctx) => this.route(ctx));
     options.bot.on('message_reaction', (ctx) => this.onReaction(ctx));
+    options.bot.on('callback_query:data', (ctx) => this.o.accessUi.pressed(ctx));
   }
 
   private async route(ctx: Context): Promise<void> {
@@ -77,7 +83,7 @@ export class Dispatcher {
     if (this.paused) return this.log.info(`paused — dropping chat=${cm.chatId} msg=${cm.messageId}`);
     this.log.info(`hot-path stage=receipt chat=${cm.chatId} msg=${cm.messageId} t_ms=0`);
     this.rememberTitle(msg.chat);
-    if (!this.allowed(cm, msg.chat.type, true)) return this.onUnauthorized(cm, msg.chat.type);
+    if (!this.allowed(cm, msg.chat.type, true)) return this.onUnauthorized(cm, msg.chat);
     if (!this.addressed(cm, msg, me)) return this.log.info(`not addressed — dropping chat=${cm.chatId} msg=${cm.messageId}`);
     if (!(await this.underRateLimit(cm, msg.chat.type))) return;
     await this.o.attachments(msg, cm);
@@ -132,10 +138,15 @@ export class Dispatcher {
     return audienceOf(msg, { botId: me.id, botUsername: me.username, people });
   }
 
-  /** Denied: record it, and in a DM send the one-time refusal. Groups stay silent. */
-  private async onUnauthorized(cm: ChatMessage, chatType: string): Promise<void> {
-    const reply = chatType === 'private' && !hasRefusal(this.o.db, cm.chatId);
-    insertUnauthorized(this.o.db, cm, chatType, reply);
+  /**
+   * Denied: record it, and in a DM send the one-time refusal (groups stay silent).
+   * A chat's first blocked message also reaches the owner, with buttons to allow it.
+   */
+  private async onUnauthorized(cm: ChatMessage, chat: Message['chat']): Promise<void> {
+    const first = !hasUnauthorized(this.o.db, cm.chatId);
+    const reply = chat.type === 'private' && !hasRefusal(this.o.db, cm.chatId);
+    insertUnauthorized(this.o.db, cm, chat.type, reply);
+    if (first) await this.o.accessUi.blocked(cm, { type: chat.type, title: 'title' in chat ? chat.title : undefined });
     if (!reply) return;
     await this.o.bot.api.sendMessage(cm.chatId, REFUSAL).catch(() => this.log.warn(`unauthorized refusal send failed for chat ${cm.chatId}`));
   }

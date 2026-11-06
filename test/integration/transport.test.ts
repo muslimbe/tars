@@ -25,7 +25,7 @@ describe('Telegram transport', () => {
     expect(t.telegram.calls.find((c) => c.method === 'deleteWebhook')?.payload).toEqual({ drop_pending_updates: true });
     expect(t.telegram.calls.find((c) => c.method === 'getUpdates')?.payload).toMatchObject({
       timeout: 10,
-      allowed_updates: ['message', 'edited_message', 'message_reaction'],
+      allowed_updates: ['message', 'edited_message', 'message_reaction', 'callback_query'],
     });
   });
 
