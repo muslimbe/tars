@@ -27,14 +27,22 @@ function formatMessage(m: ChatMessage, parentsXml: string): string {
   if (m.messageId === 0) return m.text;
   const name = m.firstName || m.username || String(m.userId);
   const time = m.timestamp.toISOString().slice(11, 16);
-  const topic = m.messageThreadId === undefined ? '' : ` topic="${m.messageThreadId}"`;
-  const reply = m.replyToId === undefined ? '' : ` reply_to="${m.replyToId}"`;
-  const flags = m.inputFlags?.size ? ` flags="${[...m.inputFlags].sort().join(',')}"` : '';
-  const audience = m.audience === undefined ? '' : ` for="${m.audience}"`;
+  // Telegram's own @username, unlike the display name, can't be set to someone else's.
+  const username = attr('username', m.username && escapeAttr(m.username));
+  const optional =
+    attr('topic', m.messageThreadId) +
+    attr('reply_to', m.replyToId) +
+    attr('flags', m.inputFlags?.size ? [...m.inputFlags].sort().join(',') : undefined) +
+    attr('for', m.audience);
   return (
-    `<msg id="${m.messageId}" chat="${m.chatId}" user="${m.userId}" name="${escapeAttr(name)}" time="${time}"${topic}${reply}${flags}${audience}>\n` +
+    `<msg id="${m.messageId}" chat="${m.chatId}" user="${m.userId}"${username} name="${escapeAttr(name)}" time="${time}"${optional}>\n` +
     `${parentsXml}${escapeXml(m.text)}\n</msg>`
   );
+}
+
+/** ` key="value"`, or nothing when the value is absent. */
+function attr(key: string, value: string | number | undefined): string {
+  return value === undefined || value === '' ? '' : ` ${key}="${value}"`;
 }
 
 function replyChain(m: ChatMessage, history: History): string {

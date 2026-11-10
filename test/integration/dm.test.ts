@@ -23,7 +23,7 @@ describe('a DM, end to end', () => {
     const reply = await t.telegram.waitFor('sendMessage', (p) => p.text === 'echo: hello there', 15_000);
     expect(reply.payload).toMatchObject({ chat_id: OWNER.id, parse_mode: 'HTML', reply_parameters: { message_id: id } });
     const stdin = t.claudeLog().find((e) => e.kind === 'stdin');
-    expect(stdin?.line).toContain(`<msg id=\\"${id}\\" chat=\\"${OWNER.id}\\" user=\\"${OWNER.id}\\" name=\\"Owner\\"`);
+    expect(stdin?.line).toContain(`<msg id=\\"${id}\\" chat=\\"${OWNER.id}\\" user=\\"${OWNER.id}\\" username=\\"owner\\" name=\\"Owner\\"`);
     expect(t.log.text()).toContain('tars is live');
   });
 
