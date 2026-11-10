@@ -24,7 +24,7 @@ The goal is a [Jarvis](https://www.youtube.com/watch?v=Qav7NJIsKL4&t=2s) — an 
 - **Works on a schedule** — one-shot and cron reminders, and recurring tasks that ship with the bot.
 - **Uses the web** — search and fetch, and a real headless browser for pages that need clicking.
 - **Grows** — skills (markdown playbooks), any MCP server (GitHub, Jira, Notion, your own), and opt-in shell, code editing and subagents.
-- **Can't** — generate images; send or read voice, video, stickers or GIFs; moderate groups; make calls.
+- **Can't** — generate images; send voice or video, or read stickers and GIFs; moderate groups; make calls. Inbound voice, audio and video are saved for a transcription MCP to read.
 
 ## Quick start
 

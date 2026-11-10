@@ -10,6 +10,7 @@ import { Transcript } from '../../src/log/transcript.ts';
 import type { ChatMessage } from '../../src/message.ts';
 import { createBot } from '../../src/telegram/bot.ts';
 import { createCommands, registerCommandMenu } from '../../src/telegram/commands.ts';
+import { createAccessUi } from '../../src/telegram/commands/access-ui.ts';
 import { type CommandHandler, Dispatcher } from '../../src/telegram/dispatcher.ts';
 import { FakeTelegram } from '../fakes/telegram.ts';
 import { memoryLogger } from '../helpers/log.ts';
@@ -45,7 +46,7 @@ function setup(access: object = { policy: 'owner_only', allowed_users: [], allow
     resetSession: () => Promise.resolve(void engine.calls.push('reset')),
   };
   const kills: string[] = [];
-  const config = { ownerId: OWNER, accessPath, rateLimitPerMin: 20, dataDir: dir, memoriesDir: join(dir, 'memories'), logDir: join(dir, 'logs') };
+  const config = { ownerId: OWNER, accessPath, rateLimitPerMin: 20, groupMessages: 'all' as const, groupAddressees: [], dataDir: dir, memoriesDir: join(dir, 'memories'), logDir: join(dir, 'logs') };
   let commands: CommandHandler = () => Promise.resolve(false);
   const dispatcher = new Dispatcher({
     bot,
@@ -56,6 +57,7 @@ function setup(access: object = { policy: 'owner_only', allowed_users: [], allow
     transcript: new Transcript(log, 'compact'),
     log: log.child('telegram'),
     commands: (ctx, command) => commands(ctx, command),
+    accessUi: createAccessUi({ api: bot.api, config, log: log.child('telegram') }),
     attachments: () => Promise.resolve(),
   });
   commands = createCommands({ config, db, engine, pause: dispatcher, log: log.child('telegram'), kill: () => void kills.push('kill') });
@@ -406,12 +408,38 @@ describe('access management', () => {
   it('/allow and /deny explain what is wrong with their arguments', async () => {
     const t = setup();
     for (const verb of ['allow', 'deny']) {
-      for (const args of ['', ' user', ' 5 user', ' chat 5']) await t.send(`/${verb}${args}`);
+      for (const args of [' user', ' 5 user', ' chat 5']) await t.send(`/${verb}${args}`);
       for (const id of ['abc', '1e3', '0x10', '12abc', '1_0', '+5', '99999999999999999999']) await t.send(`/${verb} user ${id}`);
     }
-    const usage = (verb: string) => [...Array<string>(4).fill(`Usage: /${verb} <user|group> <id>`), ...Array<string>(7).fill('ID must be a number.')];
-    expect(t.replies()).toEqual([...usage('allow'), ...usage('deny')]);
+    await t.send('/deny');
+    await t.send('/allow', { chat: GROUP });
+    const usage = (verb: string) => [...Array<string>(3).fill(`Usage: /${verb} <user|group> <id>`), ...Array<string>(7).fill('ID must be a number.')];
+    expect(t.replies()).toEqual([...usage('allow'), ...usage('deny'), 'Usage: /deny <user|group> <id>', 'Usage: /allow <user|group> <id>']);
     expect(JSON.parse(readFileSync(t.accessPath, 'utf8'))).toEqual({ policy: 'owner_only', allowed_users: [], allowed_chats: [] });
+  });
+
+  it("bare /allow in the owner's DM offers Telegram's user and group pickers, and a pick is allowed", async () => {
+    const t = setup();
+    await t.send('/allow');
+    const keyboard = t.fake.sent()[0]?.payload.reply_markup as { keyboard: { text: string; request_users?: object; request_chat?: object }[][] };
+    expect(t.replies()).toEqual(['Who should get access? Pick below, or use /allow <user|group> <id>.']);
+    expect(keyboard.keyboard[0]?.map((b) => [b.text, Boolean(b.request_users), Boolean(b.request_chat)])).toEqual([['👤 Pick users', true, false], ['👥 Pick a group', false, true]]);
+    expect(keyboard.keyboard[1]?.map((b) => b.text)).toEqual(['✖️ Cancel']);
+    await t.send('', { extra: { text: undefined, users_shared: { request_id: 1, users: [{ user_id: 5, first_name: 'Jasur' }, { user_id: 6 }] } } });
+    await t.send('', { extra: { text: undefined, chat_shared: { request_id: 2, chat_id: -100777, title: 'Support' } } });
+    await t.send('', { from: STRANGER, extra: { text: undefined, users_shared: { request_id: 1, users: [{ user_id: 9 }] } } });
+    expect(JSON.parse(readFileSync(t.accessPath, 'utf8'))).toEqual({ policy: 'owner_only', allowed_users: [5, 6], allowed_chats: [-100777] });
+    expect(t.replies().slice(1)).toEqual(['Jasur: User 5 added to allowlist.\nUser 6 added to allowlist.', 'Support: Group -100777 added to allowlist.']);
+    expect(t.fake.sent()[1]?.payload.reply_markup).toEqual({ remove_keyboard: true });
+  });
+
+  it("the picker's cancel button removes the keyboard for the owner; anyone else's same text is a normal message", async () => {
+    const t = setup({ policy: 'allowlist', allowed_users: [STRANGER], allowed_chats: [] });
+    await t.send('✖️ Cancel');
+    expect(t.fake.sent().map((c) => [c.payload.text, c.payload.reply_markup])).toEqual([['Cancelled.', { remove_keyboard: true }]]);
+    expect(t.engine.submitted).toEqual([]);
+    await t.send('✖️ Cancel', { from: STRANGER });
+    expect(t.engine.submitted.map((m) => m.text)).toEqual(['✖️ Cancel']);
   });
 
   it('/deny removes the id (every copy) and says when it was not there', async () => {
@@ -457,7 +485,7 @@ describe('command menu', () => {
           { command: 'audit', description: 'recent failures, backups, memory footprint' },
           { command: 'logs', description: 'tail recent log lines: /logs [N]' },
           { command: 'access', description: 'show access policy' },
-          { command: 'allow', description: 'add to allowlist: /allow <user|group> <id>' },
+          { command: 'allow', description: 'add to allowlist: pick, or /allow <user|group> <id>' },
           { command: 'deny', description: 'remove from allowlist: /deny <user|group> <id>' },
           { command: 'policy', description: 'set policy: /policy <owner_only|allowlist|open>' },
           { command: 'pause', description: 'drop inbound messages until /resume' },

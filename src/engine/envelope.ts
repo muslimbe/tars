@@ -30,8 +30,9 @@ function formatMessage(m: ChatMessage, parentsXml: string): string {
   const topic = m.messageThreadId === undefined ? '' : ` topic="${m.messageThreadId}"`;
   const reply = m.replyToId === undefined ? '' : ` reply_to="${m.replyToId}"`;
   const flags = m.inputFlags?.size ? ` flags="${[...m.inputFlags].sort().join(',')}"` : '';
+  const audience = m.audience === undefined ? '' : ` for="${m.audience}"`;
   return (
-    `<msg id="${m.messageId}" chat="${m.chatId}" user="${m.userId}" name="${escapeAttr(name)}" time="${time}"${topic}${reply}${flags}>\n` +
+    `<msg id="${m.messageId}" chat="${m.chatId}" user="${m.userId}" name="${escapeAttr(name)}" time="${time}"${topic}${reply}${flags}${audience}>\n` +
     `${parentsXml}${escapeXml(m.text)}\n</msg>`
   );
 }

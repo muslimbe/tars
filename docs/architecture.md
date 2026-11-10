@@ -53,7 +53,7 @@ For a first read: `src/main.ts` and `App.start()`; `engine.ts` and `outcome.ts`;
 
 `src/claude/argv.ts` starts `claude` with three tool flags:
 
-- `--tools` — an exclusive allow-list over Claude Code's built-ins: `WebFetch`, `WebSearch`, `StructuredOutput` (the turn-end tool), the MCP-discovery tools and the task-checklist tools. Anything else — `Bash`, `Edit`, `Agent`, native `Skill` — is unreachable, not merely unapproved. `tool_groups` in `plugins.json` extend the list.
+- `--tools` — an exclusive allow-list over Claude Code's built-ins: `WebFetch`, `WebSearch`, `StructuredOutput` (the turn-end tool), the MCP-discovery tools and the task-checklist tools. Anything else — `Bash`, `Edit`, `Agent`, native `Skill` — is unreachable, not merely unapproved. `tool_groups` in `plugins.json` extend the list. Claude Code runs in `projects/`, so the file tools of the `read` group see only that folder.
 - `--allowedTools` — auto-approves that surface, `mcp__tars` and every enabled external MCP. `--disallowedTools` repeats the dangerous built-ins as a backstop.
 - `--strict-mcp-config` with a generated config (`src/claude/mcpconfig.ts`). The local server is registered with `alwaysLoad: true`, so its tools are never deferred behind ToolSearch — which once made the bot "forget" `telegram_send_message` existed. Requires Claude Code ≥ 2.1.121.
 

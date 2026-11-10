@@ -21,7 +21,7 @@ export interface IngestOptions {
   log: Logger;
 }
 
-/** One photo or document a message carries. */
+/** One file a message carries. */
 interface Descriptor {
   fileId: string;
   filename: string;
@@ -29,13 +29,24 @@ interface Descriptor {
   size: number | undefined;
 }
 
-type Kind = 'image' | 'pdf' | 'text';
+/** A Telegram file object; voice notes, video notes and photos lack some of these fields. */
+interface TgFile {
+  file_id: string;
+  file_name?: string;
+  mime_type?: string;
+  file_size?: number;
+}
+
+type Kind = 'image' | 'pdf' | 'text' | 'media';
+
+/** Audio and video: saved for an external tool (e.g. a transcription MCP); tars itself can't read them. */
+const MEDIA_EXTS = new Set(['ogg', 'oga', 'opus', 'mp3', 'm4a', 'aac', 'wav', 'flac', 'mp4', 'mov', 'webm', 'mkv']);
 
 /** What a marker says when Telegram gave no MIME type. */
-const DEFAULT_MIME: Record<Kind, string> = { image: 'image/jpeg', pdf: 'application/pdf', text: 'text/plain' };
+const DEFAULT_MIME: Record<Kind, string> = { image: 'image/jpeg', pdf: 'application/pdf', text: 'text/plain', media: 'application/octet-stream' };
 
 /**
- * The dispatcher's attachment step: download each photo/document of an
+ * The dispatcher's attachment step: download each file of an
  * allowed message under `<dir>/<chat_id>/` and append one marker line per
  * file to its text — `[attachment: <path> …]`, or why it was refused or
  * failed — so the model can read it with `telegram_read_attachment`.
@@ -52,15 +63,23 @@ export function attachmentIngest(o: IngestOptions): AttachmentIngest {
   };
 }
 
-/** The largest photo size, and the document. */
+/** The largest photo size, the document, and any voice note, audio, video or video note. */
 function descriptorsOf(msg: Message): Descriptor[] {
-  const out: Descriptor[] = [];
+  const id = msg.message_id;
   const photo = msg.photo?.at(-1);
-  if (photo) out.push({ fileId: photo.file_id, filename: `photo_${msg.message_id}.jpg`, mime: 'image/jpeg', size: photo.file_size });
-  const doc = msg.document;
-  if (doc) out.push({ fileId: doc.file_id, filename: doc.file_name || `document_${msg.message_id}`, mime: doc.mime_type, size: doc.file_size });
-  return out;
+  const files = [
+    photo && fileOf(photo, `photo_${id}.jpg`, 'image/jpeg'),
+    msg.document && fileOf(msg.document, `document_${id}`),
+    msg.voice && fileOf(msg.voice, `voice_${id}.ogg`, 'audio/ogg'),
+    msg.audio && fileOf(msg.audio, `audio_${id}`),
+    msg.video && fileOf(msg.video, `video_${id}.mp4`, 'video/mp4'),
+    msg.video_note && fileOf(msg.video_note, `video_note_${id}.mp4`, 'video/mp4'),
+  ];
+  return files.filter((d) => d !== undefined);
 }
+
+/** Telegram's name and MIME type when it gave them, else the fallbacks. */
+const fileOf = (f: TgFile, name: string, mime?: string): Descriptor => ({ fileId: f.file_id, filename: f.file_name || name, mime: f.mime_type ?? mime, size: f.file_size });
 
 async function ingestOne(o: IngestOptions, msg: Message, d: Descriptor): Promise<string> {
   const at = `chat=${msg.chat.id} msg=${msg.message_id} filename=${d.filename}`;
@@ -101,12 +120,15 @@ function savedMarker(log: Logger, msg: Message, d: Descriptor, saved: { dest: st
   return `[attachment: ${saved.dest} type=${d.mime || DEFAULT_MIME[saved.kind]} size=${humanSize(size)} filename=${d.filename}]`;
 }
 
-/** By extension, or by MIME for images and PDFs; text is never inferred from the MIME type. */
+/** By extension, or by MIME for images, audio/video and PDFs; text is never inferred from the MIME type. */
 function classify(ext: string, mime: string | undefined): Kind | undefined {
   if (IMAGE_EXTS.has(ext) || mime?.startsWith('image/')) return 'image';
+  if (isMedia(ext, mime)) return 'media';
   if (ext === 'pdf' || mime === 'application/pdf') return 'pdf';
   return TEXT_EXTS.has(ext) ? 'text' : undefined;
 }
+
+const isMedia = (ext: string, mime: string | undefined) => MEDIA_EXTS.has(ext) || /^(audio|video)\//.test(mime ?? '');
 
 /** Lower-cased text after the last dot (`.env` → `env`); empty without one. */
 function extOf(name: string): string {

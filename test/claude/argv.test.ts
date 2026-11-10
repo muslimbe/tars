@@ -12,7 +12,7 @@ function spec(overrides: Partial<SpawnSpec> = {}): SpawnSpec {
   return {
     binary: 'claude', model: 'm', effort: 'high', ownerId: 42,
     systemPromptPath: join(dir, 'system.md'), projectPromptPath: join(dir, 'project.md'), subagentsPromptPath: join(dir, 'subagents.md'),
-    mcpConfigPath: join(dir, 'mcp.json'), enableBash: false, enableCode: false, enableSubagents: false,
+    mcpConfigPath: join(dir, 'mcp.json'), enableBash: false, enableCode: false, enableRead: false, enableSubagents: false, projectsDir: '/app/projects', writableDirs: [],
     mcpAllowedTools: [], tarsToolNames: ['time_now'], skillsIndex: '', memoryIndex: '',
     ...overrides,
   };

@@ -12,3 +12,9 @@ export function upsertUser(db: Db, msg: ChatMessage): void {
        last_message_date=excluded.last_message_date, message_count=message_count+1`,
   ).run(msg.chatId, msg.userId, msg.username ?? null, msg.firstName ?? null, at, at);
 }
+
+/** The user's most recent @username in any chat, if they have one. */
+export function latestUsername(db: Db, userId: number): string | undefined {
+  const row = db.prepare('SELECT username FROM users WHERE user_id = ? AND username IS NOT NULL ORDER BY last_message_date DESC LIMIT 1').get(userId) as { username: string } | undefined;
+  return row?.username;
+}

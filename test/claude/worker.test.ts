@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -43,7 +43,7 @@ function harness(overrides: Partial<WorkerOptions> & { limits?: Partial<typeof L
     argv: (sid) => [FAKE, '--mcp-config', mcpConfig, ...(sid ? ['--resume', sid] : [])],
     describe: { model: 'claude-test', enabled: [], mcpTools: 0 },
     sessionId: undefined,
-    config: { ...LIMITS, ...overrides.limits, sessionIdPath: join(dir, 'session_id'), ccLogsDir: join(dir, 'cc_logs') },
+    config: { ...LIMITS, ...overrides.limits, sessionIdPath: join(dir, 'session_id'), ccLogsDir: join(dir, 'cc_logs'), projectsDir: dir },
     lastToolActivity: () => 0,
     log,
     transcript: new Transcript(log, 'compact'),
@@ -58,7 +58,7 @@ function harness(overrides: Partial<WorkerOptions> & { limits?: Partial<typeof L
   workers.push(worker);
   const spawns = () =>
     existsSync(fakeLog)
-      ? readFileSync(fakeLog, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as { kind: string; argv?: string[]; pid: number; probe?: string }).filter((e) => e.kind === 'argv')
+      ? readFileSync(fakeLog, 'utf8').trim().split('\n').map((l) => JSON.parse(l) as { kind: string; argv?: string[]; pid: number; probe?: string; cwd?: string }).filter((e) => e.kind === 'argv')
       : [];
   return { worker, results, events, log, dir, spawns, nextResult: (n = results.length + 1) => until(() => results[n - 1]) };
 }
@@ -291,6 +291,13 @@ describe('ClaudeWorker', () => {
     await h.worker.start();
     await until(() => h.spawns()[0]);
     expect(h.spawns()[0]?.probe).toBe('inherited');
+  });
+
+  it('runs claude in the projects directory, the only place its read tools reach', async () => {
+    const h = harness();
+    await h.worker.start();
+    await until(() => h.spawns()[0]);
+    expect(h.spawns()[0]?.cwd).toBe(realpathSync(h.dir));
   });
 
   it('drops events that arrive when no turn is collecting', async () => {

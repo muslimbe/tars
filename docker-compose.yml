@@ -56,6 +56,10 @@ services:
       # rebuild. The image also has a copy baked in (Dockerfile); this
       # overlays it.
       - ./skills:/app/skills
+      # Reference material — docs, code checkouts — for the `read` tool group.
+      # Claude Code runs here, and its Read/Glob/Grep reach only their working
+      # directory, so this is all they see. Read-only: the bot can't change it.
+      - ./projects:/app/projects:ro
       # Claude Code session files, so conversations resume across restarts.
       # Auth is NOT taken from here — it comes from CLAUDE_CODE_OAUTH_TOKEN
       # in .env (see .env.example). The env-var token takes precedence over

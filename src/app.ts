@@ -34,6 +34,7 @@ import { renderSkillsIndex, SkillsStore } from './stores/skills.ts';
 import { attachmentIngest, downloadFile } from './telegram/attachments.ts';
 import { createBot } from './telegram/bot.ts';
 import { createCommands, registerCommandMenu } from './telegram/commands.ts';
+import { createAccessUi } from './telegram/commands/access-ui.ts';
 import { type CommandHandler, Dispatcher } from './telegram/dispatcher.ts';
 import { buildTools } from './tools/index.ts';
 
@@ -183,7 +184,7 @@ export class App {
 
   private prepareDisk(): void {
     const c = this.config;
-    const dirs = [c.dataDir, c.memoriesDir, c.ccLogsDir, c.attachmentsDir, c.rendersDir, c.logDir, join(c.dataDir, 'prompt_backups'), c.skillsDir];
+    const dirs = [c.dataDir, c.memoriesDir, c.ccLogsDir, c.attachmentsDir, c.rendersDir, c.logDir, join(c.dataDir, 'prompt_backups'), c.skillsDir, c.projectsDir];
     for (const dir of dirs) mkdirSync(dir, { recursive: true });
     pruneOldFiles(c.ccLogsDir);
     pruneOldFiles(c.rendersDir);
@@ -275,6 +276,7 @@ export class App {
     const dispatcher = new Dispatcher({
       bot, config: c, db, engine, chatTitles: this.chatTitles, transcript: this.transcript, log, attachments,
       commands: (ctx, command) => commands(ctx, command),
+      accessUi: createAccessUi({ api: bot.api, config: c, log }),
     });
     commands = createCommands({ config: c, db, engine, pause: dispatcher, log, kill: () => this.o.onKill() });
     await registerCommandMenu(bot.api, c.ownerId, log);
@@ -288,7 +290,7 @@ export class App {
       let live = false;
       const polling = bot.start({
         drop_pending_updates: true,
-        allowed_updates: ['message', 'edited_message', 'message_reaction'],
+        allowed_updates: ['message', 'edited_message', 'message_reaction', 'callback_query'],
         timeout: 10,
         onStart: () => {
           live = true;

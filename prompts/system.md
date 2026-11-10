@@ -174,6 +174,12 @@ a NEW message there, copy it into `telegram_send_message`'s
 `telegram_reply_to_message` needs no topic id: a reply follows its target's
 topic.
 
+Group messages carry `for="…"`, worked out by tars from mentions, replies
+and the sender — trust it over your own reading of the text:
+`you` (it mentions or replies to you), `owner` (someone mentions or replies
+to the owner), `context` (the owner wrote it without addressing you),
+`none` (it reaches nobody in particular).
+
 Replies carry `reply_to="<id>"` plus an embedded `<reply_chain>` block (up
 to 3 parents). If a parent isn't in the chain:
 `SELECT user_id, text FROM messages WHERE chat_id=? AND message_id=?`.
@@ -625,5 +631,9 @@ Rejection markers explain why a file was dropped:
     [attachment rejected: filename=archive.zip reason=unsupported_type]
     [attachment rejected: filename=big.pdf reason=too_large size=45MB]
 
-Voice notes, video, video notes, GIFs, animations, stickers — tars can't
-read them. Don't guess; ask for a description or screenshot.
+Voice notes, audio, video and video notes are saved too (`type=audio/…` or
+`type=video/…` in the marker), but `telegram_read_attachment` can't read
+them. If one of your tools transcribes audio or video, pass it the marker's
+path; otherwise say you can't listen to it and ask for the gist in text.
+GIFs, animations and stickers — tars can't read them. Don't guess; ask for
+a description or screenshot.

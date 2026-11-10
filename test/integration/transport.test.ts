@@ -25,7 +25,7 @@ describe('Telegram transport', () => {
     expect(t.telegram.calls.find((c) => c.method === 'deleteWebhook')?.payload).toEqual({ drop_pending_updates: true });
     expect(t.telegram.calls.find((c) => c.method === 'getUpdates')?.payload).toMatchObject({
       timeout: 10,
-      allowed_updates: ['message', 'edited_message', 'message_reaction'],
+      allowed_updates: ['message', 'edited_message', 'message_reaction', 'callback_query'],
     });
   });
 
@@ -66,7 +66,8 @@ describe('Telegram transport', () => {
     const t = testApp({}, { policy: 'allowlist', allowed_users: [], allowed_chats: [-1001] });
     running.push(t);
     await t.app.start();
-    t.telegram.message({ id: -1001, title: 'forum', is_forum: true }, OWNER, 'hi', { is_topic_message: true, message_thread_id: 7 });
+    // Typing shows in a group only for a message to the bot.
+    t.telegram.message({ id: -1001, title: 'forum', is_forum: true }, OWNER, '@tars_bot hi', { is_topic_message: true, message_thread_id: 7, entities: [{ type: 'mention', offset: 0, length: 9 }] });
     const typing = await t.telegram.waitFor('sendChatAction', (p) => p.chat_id === -1001, 15_000);
     expect(typing.payload).toEqual({ chat_id: -1001, action: 'typing', message_thread_id: 7 });
   });

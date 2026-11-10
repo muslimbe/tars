@@ -42,6 +42,18 @@ describe('config', () => {
     expect(() => load({ TARS_LOG_TRANSCRIPT: 'all' })).toThrow('TARS_LOG_TRANSCRIPT must be "compact" or "full", got "all"');
   });
 
+  it('lets every group message through unless told to keep only the addressed ones', () => {
+    expect(load().groupMessages).toBe('all');
+    expect(load({ TARS_GROUP_MESSAGES: ' Addressed ' }).groupMessages).toBe('addressed');
+    expect(() => load({ TARS_GROUP_MESSAGES: 'mentions' })).toThrow('TARS_GROUP_MESSAGES must be "all" or "addressed", got "mentions"');
+  });
+
+  it('reads extra group addressees as a comma-separated list of user ids', () => {
+    expect(load().groupAddressees).toEqual([]);
+    expect(load({ TARS_GROUP_ADDRESSEES: ' 7580081248, 42 ' }).groupAddressees).toEqual([7580081248, 42]);
+    expect(() => load({ TARS_GROUP_ADDRESSEES: '@someone' })).toThrow('TARS_GROUP_ADDRESSEES must be comma-separated user ids, got "@someone"');
+  });
+
   it('derives data paths from TARS_DATA_DIR and operator files from the repo root', () => {
     const config = load({ TARS_DATA_DIR: 'var/data', TARS_ACCESS_PATH: 'conf/access.json' });
     expect(config.dataDir).toBe('/srv/app/var/data');

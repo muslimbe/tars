@@ -3,7 +3,7 @@ import type { TurnResult } from '../claude/turn.ts';
 import type { Db } from '../db/database.ts';
 import { markConsumed, markProcessed, type MessageKey } from '../db/messages.ts';
 import type { Logger } from '../log/logger.ts';
-import type { ChatMessage } from '../message.ts';
+import { type ChatMessage, showsTyping } from '../message.ts';
 import { chunkText } from '../text/chunk.ts';
 import { clip } from '../text/clip.ts';
 import { formatBatch, type History } from './envelope.ts';
@@ -164,7 +164,7 @@ export class Engine {
   }
 
   private async open(text: string, batch: readonly ChatMessage[]): Promise<void> {
-    await this.o.typing.start(this.turn.activeChats);
+    await this.o.typing.start(new Set(humans(batch).filter(showsTyping).map((m) => m.chatId)));
     this.logHotPath('worker-send', batch, this.turn.activeChats);
     await this.o.worker.send(text);
     this.markConsumed(batch);

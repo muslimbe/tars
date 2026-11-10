@@ -17,7 +17,7 @@ Always on, served by the local MCP server as `mcp__tars__<name>`. Each is a fact
 | `telegram_add_reaction` | React to a message with an emoji — often better than an "ok" reply in groups. |
 | `telegram_create_poll` | Send a poll: regular or quiz, multi-answer, anonymous or not, auto-close, reply-to. |
 | `telegram_stop_poll` | Close a poll early and return the tallies. |
-| `telegram_read_attachment` | Read a photo or document the user sent. The dispatcher saves attachments under `data/attachments/` and marks them `[attachment: <path> …]`. Images come back as image blocks (the bot sees them), text files as UTF-8, PDFs as their text with `--- page N ---` markers; text and PDFs cap at 64 KiB. Telegram's GIF animations and videos aren't supported. |
+| `telegram_read_attachment` | Read a photo or document the user sent. The dispatcher saves attachments under `data/attachments/` and marks them `[attachment: <path> …]`. Images come back as image blocks (the bot sees them), text files as UTF-8, PDFs as their text with `--- page N ---` markers; text and PDFs cap at 64 KiB. Voice notes, audio and video are saved and marked too, but not readable here — pass their path to a transcription MCP (a GIF arrives as a silent video). |
 | `telegram_send_memory_document` | Send a memory file as a downloadable document. |
 | `render_html` | Render HTML to a PNG in `data/renders/` with headless Chromium — for tables, charts and diffs Markdown can't hold. No network: inline any CSS/JS. |
 | `render_latex` | Render a LaTeX expression (without `$$`) to a PNG via KaTeX, loaded from `cdn.jsdelivr.net` only. |
@@ -138,13 +138,18 @@ Passed with the **exclusive** `--tools` flag, so this is exactly what the model 
 | `ToolSearch`, `ListMcpResourcesTool`, `ReadMcpResourceTool`, `WaitForMcpServers` | MCP discovery — idle until an external MCP needs them. |
 | `TaskCreate` / `TaskGet` / `TaskList` / `TaskUpdate` | A task checklist for multi-step turns. |
 
-Three groups are off until `tool_groups` turns them on:
+Four groups are off until `tool_groups` turns them on:
 
 | Group | Tools |
 |---|---|
 | `bash` | `Bash`, `PowerShell`, `Monitor` — shell execution. |
 | `code` | `Edit`, `Write`, `Read`, `NotebookEdit`, `Glob`, `Grep`, `LSP` — code work. |
+| `read` | `Read`, `Glob`, `Grep` — read-only access to `projects/`, for docs and code the bot should know. |
 | `subagents` | `Agent` — a subagent with its own context, token-heavy; also loads `prompts/subagents.md`. `SendMessage` becomes reachable too, but isn't auto-approved (backlog P7). |
+
+Claude Code runs in `projects/`, and tars allows the file tools only by path — `Read(//app/projects/**)`, which Claude Code also applies to `Glob` and `Grep` — never by bare name, which would open every file in the container, `.env` and the database included. Docker mounts `projects/` read-only. Put each project in its own folder, e.g. `projects/billing/docs/` and `projects/billing/code/`, and tell the bot in `project.md` what is where.
+
+`writable_projects` in `plugins.json` lists folders under `projects/` the bot may change, e.g. `["billing/docs"]`: it adds `Edit` and `Write` (and the read tools) with one `Edit(path)` rule per folder. Mount each one read-write over the read-only `projects/`, in a `docker-compose.override.yml`. Keep any git history of such a folder outside it, or the bot could plant hooks.
 
 Left out on purpose: native `Skill` (tars runs skills itself), `CronCreate` and friends (tars has reminders), `AskUserQuestion`, `PushNotification` and `SendUserFile` (dead in a headless Telegram bot), plan-mode and worktree tools, `TaskStop`/`TaskOutput`. To add one, put it in `BASE_BUILTIN_TOOLS` or a group set in `src/claude/argv.ts`.
 
@@ -175,7 +180,8 @@ One file decides the bot's capabilities. A missing file boots locked down (no gr
     }
   ],
   "builtin_tools_disabled": ["telegram_create_poll", "telegram_stop_poll"],
-  "skills_disabled": ["render-style"]
+  "skills_disabled": ["render-style"],
+  "writable_projects": []
 }
 ```
 

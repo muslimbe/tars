@@ -21,6 +21,10 @@ export interface Config {
   debounceMs: number;
   /** Per-user DM messages per minute; the owner and groups are exempt. */
   rateLimitPerMin: number;
+  /** `addressed`: a group message reaches the model only if the owner wrote it, or it mentions or replies to the bot or the owner. */
+  groupMessages: 'all' | 'addressed';
+  /** More user ids `addressed` treats like the owner (an owner's second account); no owner rights. */
+  groupAddressees: readonly number[];
   attachmentMaxBytes: number;
   toolErrorMaxCount: number;
   toolErrorWindowSeconds: number;
@@ -45,6 +49,8 @@ export interface Config {
   pluginsPath: string;
   promptsDir: string;
   skillsDir: string;
+  /** Claude Code's working directory, so the `read` tool group reaches only this folder. */
+  projectsDir: string;
 }
 
 // An empty variable counts as unset.
@@ -105,6 +111,22 @@ const logTranscript = text('compact').transform((raw, ctx) => {
   return z.NEVER;
 });
 
+const groupMessages = text('all').transform((raw, ctx) => {
+  const value = raw.trim().toLowerCase();
+  if (value === 'all' || value === 'addressed') return value;
+  ctx.addIssue({ code: 'custom', message: `TARS_GROUP_MESSAGES must be "all" or "addressed", got ${JSON.stringify(value)}` });
+  return z.NEVER;
+});
+
+const userIds = (name: string) =>
+  optional.transform((raw, ctx) => {
+    const ids = (raw ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    const bad = ids.filter((s) => !/^\d+$/.test(s));
+    if (!bad.length) return ids.map(Number);
+    ctx.addIssue({ code: 'custom', message: `${name} must be comma-separated user ids, got ${JSON.stringify(raw)}` });
+    return z.NEVER;
+  });
+
 const ENV = z.object({
   TELEGRAM_BOT_TOKEN: required('TELEGRAM_BOT_TOKEN'),
   TARS_OWNER_ID: int('TARS_OWNER_ID'),
@@ -116,6 +138,8 @@ const ENV = z.object({
   TARS_SELF_REFLECTION_CRON: text('0 0 * * *'),
   TARS_DEBOUNCE_MS: int('TARS_DEBOUNCE_MS', 0),
   TARS_RATE_LIMIT_PER_MIN: int('TARS_RATE_LIMIT_PER_MIN', 20),
+  TARS_GROUP_MESSAGES: groupMessages,
+  TARS_GROUP_ADDRESSEES: userIds('TARS_GROUP_ADDRESSEES'),
   TARS_ATTACHMENT_MAX_BYTES: int('TARS_ATTACHMENT_MAX_BYTES', 20_000_000),
   TARS_TOOL_ERROR_MAX_COUNT: int('TARS_TOOL_ERROR_MAX_COUNT', 10),
   TARS_TOOL_ERROR_WINDOW_SECONDS: float('TARS_TOOL_ERROR_WINDOW_SECONDS', 600),
@@ -153,6 +177,8 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>, cw
     selfReflectionCron: e.TARS_SELF_REFLECTION_CRON,
     debounceMs: e.TARS_DEBOUNCE_MS,
     rateLimitPerMin: e.TARS_RATE_LIMIT_PER_MIN,
+    groupMessages: e.TARS_GROUP_MESSAGES,
+    groupAddressees: e.TARS_GROUP_ADDRESSEES,
     attachmentMaxBytes: e.TARS_ATTACHMENT_MAX_BYTES,
     toolErrorMaxCount: e.TARS_TOOL_ERROR_MAX_COUNT,
     toolErrorWindowSeconds: e.TARS_TOOL_ERROR_WINDOW_SECONDS,
@@ -187,5 +213,6 @@ function paths(e: z.infer<typeof ENV>, cwd: string) {
     pluginsPath: fromRoot(e.TARS_PLUGINS_PATH, 'plugins.json'),
     promptsDir: resolve(PROJECT_ROOT, 'prompts'),
     skillsDir: resolve(PROJECT_ROOT, 'skills'),
+    projectsDir: resolve(PROJECT_ROOT, 'projects'),
   };
 }

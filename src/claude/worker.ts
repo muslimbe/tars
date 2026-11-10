@@ -18,7 +18,7 @@ const STALE_SESSION_PATTERNS = ['No conversation found with session ID', '--resu
 type Limits = Pick<
   Config,
   | 'livenessTimeoutSeconds' | 'livenessPollSeconds' | 'toolErrorMaxCount' | 'toolErrorWindowSeconds'
-  | 'crashBackoffBase' | 'crashBackoffCap' | 'crashLimit' | 'crashWindowSeconds' | 'sessionIdPath' | 'ccLogsDir'
+  | 'crashBackoffBase' | 'crashBackoffCap' | 'crashLimit' | 'crashWindowSeconds' | 'sessionIdPath' | 'ccLogsDir' | 'projectsDir'
 >;
 
 export interface WorkerOptions {
@@ -137,7 +137,7 @@ export class ClaudeWorker {
     this.childStderr = [];
     this.reportedServers = new Set();
     this.intentional = undefined;
-    const child = spawnChild(argv, (line) => this.onStdout(line), (line) => this.onStderr(line));
+    const child = spawnChild(argv, this.o.config.projectsDir, (line) => this.onStdout(line), (line) => this.onStderr(line));
     this.child = child;
     child.spawned.then(() => {
       if (this.child !== child) return;

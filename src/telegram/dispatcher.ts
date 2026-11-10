@@ -1,16 +1,18 @@
 import type { Bot, Context } from 'grammy';
-import type { Message, Update } from 'grammy/types';
+import type { Message, Update, UserFromGetMe } from 'grammy/types';
 
 import type { Config } from '../config.ts';
 import type { Db } from '../db/database.ts';
 import { insertMessage, markEdited } from '../db/messages.ts';
 import { applyUserReaction } from '../db/reactions.ts';
-import { insertUnauthorized, hasRefusal } from '../db/unauthorized.ts';
-import { upsertUser } from '../db/users.ts';
+import { hasRefusal, hasUnauthorized, insertUnauthorized } from '../db/unauthorized.ts';
+import { latestUsername, upsertUser } from '../db/users.ts';
 import type { Logger } from '../log/logger.ts';
 import type { Transcript } from '../log/transcript.ts';
-import type { ChatMessage } from '../message.ts';
+import { type Audience, type ChatMessage, showsTyping } from '../message.ts';
 import { gate, loadAccess } from './access.ts';
+import { audienceOf } from './addressed.ts';
+import { type AccessUi, PICKER_CANCEL } from './commands/access-ui.ts';
 import { checkRateLimit } from './ratelimit.ts';
 import { chatTitle, commandOf, toChatMessage } from './updates.ts';
 
@@ -23,18 +25,20 @@ export interface EnginePort {
 /** Handles a recognised command; true when it was one of ours (and so consumed for everyone). */
 export type CommandHandler = (ctx: Context, command: { name: string; args: string[] }) => Promise<boolean>;
 
-/** Adds attachment markers to an allowed message's text (photos, documents). */
+/** Adds attachment markers to an allowed message's text (photos, documents, voice, audio, video). */
 export type AttachmentIngest = (msg: Message, cm: ChatMessage) => Promise<void>;
 
 export interface DispatcherOptions {
   bot: Bot;
-  config: Pick<Config, 'ownerId' | 'accessPath' | 'rateLimitPerMin'>;
+  config: Pick<Config, 'ownerId' | 'accessPath' | 'rateLimitPerMin' | 'groupMessages' | 'groupAddressees'>;
   db: Db;
   engine: EnginePort;
   chatTitles: Map<number, string>;
   transcript: Transcript;
   log: Logger;
   commands: CommandHandler;
+  /** User/group pickers, blocked-chat notices and their buttons. */
+  accessUi: AccessUi;
   attachments: AttachmentIngest;
 }
 
@@ -54,8 +58,12 @@ export class Dispatcher {
   constructor(options: DispatcherOptions) {
     this.o = options;
     this.log = options.log;
+    // Registered first: a pick from the `/allow` keyboard never reaches the message pipeline.
+    options.bot.on(['message:users_shared', 'message:chat_shared'], (ctx) => this.o.accessUi.picked(ctx));
+    options.bot.hears(PICKER_CANCEL, (ctx, next) => this.o.accessUi.cancelled(ctx, next));
     options.bot.on(['message', 'edited_message'], (ctx) => this.route(ctx));
     options.bot.on('message_reaction', (ctx) => this.onReaction(ctx));
+    options.bot.on('callback_query:data', (ctx) => this.o.accessUi.pressed(ctx));
   }
 
   private async route(ctx: Context): Promise<void> {
@@ -64,11 +72,11 @@ export class Dispatcher {
     const command = commandOf(msg, ctx.me.username);
     if (command && (await this.o.commands(ctx, command))) return;
     // Edits that still carry content re-enter as messages (backlog P13).
-    if (hasContent(msg)) return this.onMessage(ctx.update, msg);
+    if (hasContent(msg)) return this.onMessage(ctx.update, msg, ctx.me);
     if (ctx.editedMessage) this.onEdited(msg);
   }
 
-  private async onMessage(update: Update, msg: Message): Promise<void> {
+  private async onMessage(update: Update, msg: Message, me: UserFromGetMe): Promise<void> {
     const receivedAt = performance.now();
     const cm = toChatMessage(update, msg);
     if (!cm) return;
@@ -76,17 +84,18 @@ export class Dispatcher {
     if (this.paused) return this.log.info(`paused — dropping chat=${cm.chatId} msg=${cm.messageId}`);
     this.log.info(`hot-path stage=receipt chat=${cm.chatId} msg=${cm.messageId} t_ms=0`);
     this.rememberTitle(msg.chat);
-    if (!this.allowed(cm, msg.chat.type, true)) return this.onUnauthorized(cm, msg.chat.type);
+    if (!this.allowed(cm, msg.chat.type, true)) return this.onUnauthorized(cm, msg.chat);
+    if (!this.addressed(cm, msg, me)) return this.log.info(`not addressed — dropping chat=${cm.chatId} msg=${cm.messageId}`);
     if (!(await this.underRateLimit(cm, msg.chat.type))) return;
     await this.o.attachments(msg, cm);
     insertMessage(this.o.db, cm);
     upsertUser(this.o.db, cm);
-    this.o.engine.primeTyping(cm.chatId, cm.messageThreadId);
+    if (showsTyping(cm)) this.o.engine.primeTyping(cm.chatId, cm.messageThreadId);
     this.log.info(`hot-path stage=submit chat=${cm.chatId} msg=${cm.messageId} t_ms=${Math.trunc(performance.now() - receivedAt)}`);
     await this.o.engine.submit(cm);
   }
 
-  /** An edit carrying none of text/caption/photo/document (e.g. a live-location update). */
+  /** An edit carrying no text, caption or file (e.g. a live-location update). */
   private onEdited(msg: Message): void {
     this.rememberTitle(msg.chat);
     const userId = msg.from?.id ?? 0;
@@ -117,10 +126,28 @@ export class Dispatcher {
     return ok;
   }
 
-  /** Denied: record it, and in a DM send the one-time refusal. Groups stay silent. */
-  private async onUnauthorized(cm: ChatMessage, chatType: string): Promise<void> {
-    const reply = chatType === 'private' && !hasRefusal(this.o.db, cm.chatId);
-    insertUnauthorized(this.o.db, cm, chatType, reply);
+  /** Marks who a group message is for; false when `TARS_GROUP_MESSAGES=addressed` drops it. */
+  private addressed(cm: ChatMessage, msg: Message, me: UserFromGetMe): boolean {
+    if (msg.chat.type === 'private') return true;
+    cm.audience = this.audience(msg, me);
+    return cm.audience !== 'none' || this.o.config.groupMessages === 'all';
+  }
+
+  /** Who a group message is for; the people are the owner and `TARS_GROUP_ADDRESSEES`. */
+  private audience(msg: Message, me: UserFromGetMe): Audience {
+    const people = [this.o.config.ownerId, ...this.o.config.groupAddressees].map((id) => ({ id, username: latestUsername(this.o.db, id) }));
+    return audienceOf(msg, { botId: me.id, botUsername: me.username, people });
+  }
+
+  /**
+   * Denied: record it, and in a DM send the one-time refusal (groups stay silent).
+   * A chat's first blocked message also reaches the owner, with buttons to allow it.
+   */
+  private async onUnauthorized(cm: ChatMessage, chat: Message['chat']): Promise<void> {
+    const first = !hasUnauthorized(this.o.db, cm.chatId);
+    const reply = chat.type === 'private' && !hasRefusal(this.o.db, cm.chatId);
+    insertUnauthorized(this.o.db, cm, chat.type, reply);
+    if (first) await this.o.accessUi.blocked(cm, { type: chat.type, title: 'title' in chat ? chat.title : undefined });
     if (!reply) return;
     await this.o.bot.api.sendMessage(cm.chatId, REFUSAL).catch(() => this.log.warn(`unauthorized refusal send failed for chat ${cm.chatId}`));
   }
@@ -143,5 +170,5 @@ export class Dispatcher {
   }
 }
 
-/** Text, a caption, a photo or a document: what the message pipeline handles. */
-const hasContent = (msg: Message) => Boolean(msg.text || msg.caption || msg.photo?.length || msg.document);
+/** Text, a caption, or a file the attachment step saves: what the message pipeline handles. */
+const hasContent = (msg: Message) => Boolean(msg.text || msg.caption || msg.photo?.length || msg.document || msg.voice || msg.audio || msg.video || msg.video_note);

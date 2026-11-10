@@ -106,13 +106,14 @@ function usageError(message: string): number {
 }
 
 /**
- * Claude Code's directory for this project: `~/.claude/projects/` plus the
- * working directory with every non-alphanumeric UTF-16 unit turned into `-`
- * (an emoji becomes two dashes, as Claude Code writes it).
+ * Claude Code's directory for the bot's sessions: `~/.claude/projects/` plus
+ * its working directory (`projects/` under the repo root, where trace runs)
+ * with every non-alphanumeric UTF-16 unit turned into `-` (an emoji becomes
+ * two dashes, as Claude Code writes it).
  */
 function sessionsDir(override: string | undefined): string {
   if (override) return realPath(override.replace(/^~(?=$|\/)/, homedir()));
-  return join(homedir(), '.claude', 'projects', realpathSync(process.cwd()).replace(/[^A-Za-z0-9]/g, '-'));
+  return join(homedir(), '.claude', 'projects', realPath('projects').replace(/[^A-Za-z0-9]/g, '-'));
 }
 
 /** Absolute, with symlinks resolved as far as the path exists. */

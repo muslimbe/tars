@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { loadSessionId, spawnDescription } from '../../src/claude/spec.ts';
+import { loadSessionId, spawnDescription, spawnSpec } from '../../src/claude/spec.ts';
 import { memoryLogger } from '../helpers/log.ts';
 import { tempDir } from '../helpers/tmp.ts';
 
@@ -18,6 +18,13 @@ describe('spawn spec helpers', () => {
     writeFileSync(path, 'abc-123\n');
     expect(loadSessionId(path, log)).toBe('abc-123');
     expect(log.text()).toBe('INFO resuming cc session abc-123');
+  });
+
+  it('resolves writable_projects under the projects folder', () => {
+    const config = { claudeCodeBin: 'claude', model: 'm', effort: 'high', ownerId: 1, promptsDir: '/app/prompts', projectsDir: '/app/projects' };
+    const plugins = { toolGroups: { read: true }, mcps: [], writableProjects: ['billing/docs'] };
+    const s = spawnSpec(config, plugins, { mcpConfigPath: '/x/mcp.json', toolNames: [], indexes: () => ({ skills: '', memory: '' }) })(undefined);
+    expect(s).toMatchObject({ enableRead: true, projectsDir: '/app/projects', writableDirs: ['/app/projects/billing/docs'] });
   });
 
   it('describes a spawn by model, enabled groups and external MCP tool count', () => {

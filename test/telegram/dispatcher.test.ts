@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { Update } from 'grammy/types';
@@ -8,6 +8,7 @@ import { openDatabase } from '../../src/db/database.ts';
 import { Transcript } from '../../src/log/transcript.ts';
 import type { ChatMessage } from '../../src/message.ts';
 import { createBot } from '../../src/telegram/bot.ts';
+import { createAccessUi } from '../../src/telegram/commands/access-ui.ts';
 import { Dispatcher } from '../../src/telegram/dispatcher.ts';
 import { FakeTelegram } from '../fakes/telegram.ts';
 import { memoryLogger } from '../helpers/log.ts';
@@ -15,7 +16,7 @@ import { tempDir } from '../helpers/tmp.ts';
 
 const OWNER = 111;
 
-function setup(access: object = { policy: 'allowlist', allowed_users: [222], allowed_chats: [-100] }, rateLimitPerMin = 20) {
+function setup(access: object = { policy: 'allowlist', allowed_users: [222], allowed_chats: [-100] }, rateLimitPerMin = 20, groupMessages: 'all' | 'addressed' = 'all') {
   const dir = tempDir();
   writeFileSync(join(dir, 'access.json'), JSON.stringify(access));
   const fake = new FakeTelegram();
@@ -27,23 +28,24 @@ function setup(access: object = { policy: 'allowlist', allowed_users: [222], all
   const commands: string[] = [];
   const dispatcher = new Dispatcher({
     bot,
-    config: { ownerId: OWNER, accessPath: join(dir, 'access.json'), rateLimitPerMin },
+    config: { ownerId: OWNER, accessPath: join(dir, 'access.json'), rateLimitPerMin, groupMessages, groupAddressees: [444] },
     db,
     engine: { submit: (m) => Promise.resolve(void submitted.push(m)), primeTyping: (c) => void primed.push(c) },
     chatTitles: new Map(),
     transcript: new Transcript(log, 'compact'),
     log,
     commands: (_ctx, c) => Promise.resolve(c.name === 'health' && commands.push(c.name) > 0),
+    accessUi: createAccessUi({ api: bot.api, config: { ownerId: OWNER, accessPath: join(dir, 'access.json') }, log }),
     attachments: () => Promise.resolve(),
   });
   let nextId = 1;
-  const send = (chat: { id: number; type: string }, from: number, text: string, extra: object = {}) =>
+  const send = (chat: { id: number; type: string; title?: string }, from: number, text: string, extra: object = {}) =>
     bot.handleUpdate({
       update_id: nextId,
       message: { message_id: nextId++, date: Math.floor(Date.now() / 1000), chat, from: { id: from, is_bot: false, first_name: `U${from}` }, text, ...extra },
     } as Update);
   const rows = (table: string) => db.prepare(`SELECT * FROM ${table}`).all();
-  return { fake, bot, db, log, dispatcher, submitted, primed, commands, send, rows };
+  return { fake, bot, db, log, dispatcher, submitted, primed, commands, send, rows, accessPath: join(dir, 'access.json') };
 }
 
 const dm = (id: number) => ({ id, type: 'private' });
@@ -66,9 +68,48 @@ describe('dispatcher', () => {
     await t.send({ id: -999, type: 'supergroup' }, 333, 'group hi');
     expect(t.submitted).toEqual([]);
     expect(t.rows('messages')).toEqual([]);
-    expect(t.fake.sent().map((c) => [c.payload.chat_id, c.payload.text])).toEqual([[333, 'This is a private assistant. Please contact the owner if you want an access.']]);
+    const toStrangers = t.fake.sent().filter((c) => c.payload.chat_id !== OWNER);
+    expect(toStrangers.map((c) => [c.payload.chat_id, c.payload.text])).toEqual([[333, 'This is a private assistant. Please contact the owner if you want an access.']]);
     expect(t.rows('unauthorized_messages')).toMatchObject([{ chat_id: 333, refusal_sent: 1 }, { chat_id: 333, refusal_sent: 0 }, { chat_id: -999, refusal_sent: 0, chat_type: 'supergroup' }]);
     expect(t.log.text()).toContain('[DROP] DM [333] U333[333] m1 (chat not allowed) | hi');
+  });
+
+  it("tells the owner about a chat's first blocked message, with buttons to allow or ignore it", async () => {
+    const t = setup();
+    await t.send(dm(333), 333, 'hi', { from: { id: 333, is_bot: false, first_name: 'Rasul', username: 'rasul' } });
+    await t.send(dm(333), 333, 'hi again');
+    await t.send({ id: -999, type: 'supergroup', title: 'Sales' }, 444, 'group hi');
+    const notices = t.fake.sent().filter((c) => c.payload.chat_id === OWNER).map((c) => c.payload);
+    expect(notices).toEqual([
+      {
+        chat_id: OWNER,
+        text: "🔒 Rasul @rasul (333) wrote to me but isn't on the allowlist:\n«hi»",
+        reply_markup: { inline_keyboard: [[{ text: '✅ Allow', callback_data: 'allow user 333' }, { text: '🚫 Ignore', callback_data: 'ignore' }]] },
+      },
+      {
+        chat_id: OWNER,
+        text: "🔒 A message came from the group «Sales» (-999), which isn't on the allowlist.\nFrom U444 (444): «group hi»",
+        reply_markup: { inline_keyboard: [[{ text: '✅ Allow', callback_data: 'allow group -999' }, { text: '🚫 Ignore', callback_data: 'ignore' }]] },
+      },
+    ]);
+  });
+
+  it('allows a blocked chat when the owner presses Allow, and only the owner', async () => {
+    const t = setup();
+    const allowedUsers = () => (JSON.parse(readFileSync(t.accessPath, 'utf8')) as { allowed_users: number[] }).allowed_users;
+    const press = (from: number, data: string) =>
+      t.bot.handleUpdate({
+        update_id: 900 + from,
+        callback_query: { id: `q${from}`, from: { id: from, is_bot: false, first_name: 'X' }, chat_instance: 'c', data, message: { message_id: 5, date: 1, chat: { id: OWNER, type: 'private', first_name: 'O' }, text: '🔒 notice' } },
+      });
+    await press(333, 'allow user 333');
+    expect(allowedUsers()).toEqual([222]);
+    await press(OWNER, 'allow user 333');
+    expect(allowedUsers()).toEqual([222, 333]);
+    expect(t.fake.sent('answerCallbackQuery').map((c) => c.payload.text)).toEqual([undefined, '✅ User 333 added to allowlist.']);
+    expect(t.fake.sent('editMessageText').map((c) => c.payload.text)).toEqual(['🔒 notice\n\n✅ User 333 added to allowlist.']);
+    await press(OWNER, 'ignore');
+    expect(t.fake.sent('answerCallbackQuery').at(-1)?.payload.text).toBe('🚫 Ignored.');
   });
 
   it('rate-limits DMs per user with one notice; groups and the owner are exempt', async () => {
@@ -125,14 +166,41 @@ describe('dispatcher', () => {
     expect(t.submitted.map((m) => m.text)).toEqual(['beep']);
   });
 
-  it('takes text, captions, photos and documents; other media without a caption is ignored', async () => {
+  it('keeps only group messages for the bot, the owner or their extra addressees when told to, and never stores the rest', async () => {
+    const t = setup(undefined, 20, 'addressed');
+    const group = { id: -100, type: 'supergroup', title: 'G' };
+    await t.send(group, 222, 'chatter between colleagues');
+    await t.send(group, OWNER, 'the owner, untagged');
+    await t.send(group, 444, "the owner's second account, untagged");
+    await t.send(group, 222, '@owner_name please look', { entities: [{ type: 'mention', offset: 0, length: 11 }] });
+    await t.send(dm(222), 222, 'a DM is always for the bot');
+    expect(t.submitted.map((m) => m.text)).toEqual(['the owner, untagged', "the owner's second account, untagged", 'a DM is always for the bot']);
+    expect(t.rows('messages')).toHaveLength(3);
+    expect(t.log.text()).toContain('not addressed — dropping chat=-100 msg=1');
+    // Once the owner's @username is known from their own messages, tagging them counts.
+    await t.send(dm(OWNER), OWNER, 'hi', { from: { id: OWNER, is_bot: false, first_name: 'Owner', username: 'Owner_Name' } });
+    await t.send(group, 222, '@owner_name please look', { entities: [{ type: 'mention', offset: 0, length: 11 }] });
+    expect(t.submitted.at(-1)?.text).toBe('@owner_name please look');
+  });
+
+  it('shows typing in a group only for messages that mention or reply to the bot', async () => {
+    const t = setup();
+    const group = { id: -100, type: 'supergroup', title: 'G' };
+    await t.send(group, 222, 'chatter');
+    await t.send(group, 222, '@tars_bot a question', { entities: [{ type: 'mention', offset: 0, length: 9 }] });
+    await t.send(dm(222), 222, 'a DM');
+    expect(t.submitted.map((m) => m.audience)).toEqual(['none', 'you', undefined]);
+    expect(t.primed).toEqual([-100, 222]);
+  });
+
+  it('takes text, captions and files (voice included); a sticker without a caption is ignored', async () => {
     const t = setup();
     await t.send(dm(222), 222, '', { text: undefined, sticker: { file_id: 's', file_unique_id: 's', type: 'regular', width: 1, height: 1, is_animated: false, is_video: false } });
-    await t.send(dm(222), 222, '', { text: undefined, voice: { file_id: 'v', file_unique_id: 'v', duration: 1 } });
     expect(t.submitted).toEqual([]);
     expect(t.rows('messages')).toEqual([]);
+    await t.send(dm(222), 222, '', { text: undefined, voice: { file_id: 'v', file_unique_id: 'v', duration: 1 } });
     await t.send(dm(222), 222, '', { text: undefined, caption: 'listen', voice: { file_id: 'v', file_unique_id: 'v', duration: 1 } });
-    expect(t.submitted.map((m) => m.text)).toEqual(['listen']);
+    expect(t.submitted.map((m) => m.text)).toEqual(['', 'listen']);
   });
 
   it('logs the receipt (denied senders too) and the submit with its latency', async () => {

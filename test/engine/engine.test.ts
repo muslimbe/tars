@@ -152,6 +152,15 @@ describe('engine: batching and turns', () => {
     expect(t.worker.sent[0]).toBe('<reminder id="1" chat_id="111" user_id="-1">wake up</reminder>');
     expect(t.typed).toEqual([]);
   });
+
+  it('shows no typing for a group message that is not for the bot', async () => {
+    const quiet = setup();
+    await startTurn(quiet, msg('chatter', -100, { audience: 'context' }));
+    expect(quiet.typed).toEqual([]);
+    const addressed = setup();
+    await startTurn(addressed, msg('@bot a question', -100, { audience: 'you' }));
+    expect(addressed.typed).toEqual([-100]);
+  });
 });
 
 describe('engine: turn endings', () => {

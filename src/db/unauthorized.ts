@@ -16,3 +16,7 @@ export function insertUnauthorized(db: Db, msg: ChatMessage, chatType: string | 
 /** Whether the one-time "private assistant" reply already went to this chat. */
 export const hasRefusal = (db: Db, chatId: number): boolean =>
   db.prepare('SELECT 1 FROM unauthorized_messages WHERE chat_id=? AND refusal_sent=1 LIMIT 1').get(chatId) !== undefined;
+
+/** Whether this chat already has a blocked message on record (within the retention window). */
+export const hasUnauthorized = (db: Db, chatId: number): boolean =>
+  db.prepare('SELECT 1 FROM unauthorized_messages WHERE chat_id=? LIMIT 1').get(chatId) !== undefined;

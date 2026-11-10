@@ -23,7 +23,7 @@ describe('operations contract', () => {
       depends_on: { 'tars-init': { condition: 'service_completed_successfully' } },
     });
     expect(services.tars?.volumes).toEqual([
-      './data:/app/data', './memories:/app/memories', './prompts:/app/prompts', './skills:/app/skills',
+      './data:/app/data', './memories:/app/memories', './prompts:/app/prompts', './skills:/app/skills', './projects:/app/projects:ro',
       '~/.claude:/root/.claude', '~/.claude.json:/root/.claude.json', './access.json:/app/access.json',
       './plugins.json:/app/plugins.json', './default-reminders.json:/app/default-reminders.json:ro',
     ]);
