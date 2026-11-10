@@ -12,7 +12,7 @@ import type { Transcript } from '../log/transcript.ts';
 import { type Audience, type ChatMessage, showsTyping } from '../message.ts';
 import { gate, loadAccess } from './access.ts';
 import { audienceOf } from './addressed.ts';
-import type { AccessUi } from './commands/access-ui.ts';
+import { type AccessUi, PICKER_CANCEL } from './commands/access-ui.ts';
 import { checkRateLimit } from './ratelimit.ts';
 import { chatTitle, commandOf, toChatMessage } from './updates.ts';
 
@@ -60,6 +60,7 @@ export class Dispatcher {
     this.log = options.log;
     // Registered first: a pick from the `/allow` keyboard never reaches the message pipeline.
     options.bot.on(['message:users_shared', 'message:chat_shared'], (ctx) => this.o.accessUi.picked(ctx));
+    options.bot.hears(PICKER_CANCEL, (ctx, next) => this.o.accessUi.cancelled(ctx, next));
     options.bot.on(['message', 'edited_message'], (ctx) => this.route(ctx));
     options.bot.on('message_reaction', (ctx) => this.onReaction(ctx));
     options.bot.on('callback_query:data', (ctx) => this.o.accessUi.pressed(ctx));

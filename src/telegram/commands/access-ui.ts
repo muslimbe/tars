@@ -14,6 +14,9 @@ import { allow } from './allowlist.ts';
 const PICK_USERS = 1;
 const PICK_GROUP = 2;
 
+/** Sent as plain text by the keyboard's cancel button; the dispatcher stops it for the owner. */
+export const PICKER_CANCEL = '✖️ Cancel';
+
 /** The `/allow` keyboard. Telegram shows these pickers in private chats only. */
 export const PICKER: ReplyKeyboardMarkup = {
   keyboard: [
@@ -21,6 +24,7 @@ export const PICKER: ReplyKeyboardMarkup = {
       { text: '👤 Pick users', request_users: { request_id: PICK_USERS, user_is_bot: false, max_quantity: 10, request_name: true } },
       { text: '👥 Pick a group', request_chat: { request_id: PICK_GROUP, chat_is_channel: false, request_title: true } },
     ],
+    [{ text: PICKER_CANCEL }],
   ],
   one_time_keyboard: true,
   resize_keyboard: true,
@@ -31,6 +35,8 @@ export const PICKER_TEXT = 'Who should get access? Pick below, or use /allow <us
 export interface AccessUi {
   /** The owner picked users or a group on the `/allow` keyboard (a `users_shared` / `chat_shared` message). */
   picked(ctx: Context): Promise<void>;
+  /** The owner pressed the keyboard's cancel button: remove the keyboard. Anyone else's identical text goes on (`next`). */
+  cancelled(ctx: Context, next: () => Promise<void>): Promise<void>;
   /** A button on a blocked-chat notice was pressed. */
   pressed(ctx: Context): Promise<void>;
   /** The first blocked message from a chat: tell the owner, with buttons. */
@@ -50,6 +56,10 @@ export function createAccessUi({ api, config, log }: AccessUiDeps): AccessUi {
       if (!isOwner(ctx) || !ctx.msg) return;
       const lines = picks(ctx.msg).map((p) => `${p.name ? `${p.name}: ` : ''}${allow(config.accessPath, [p.kind, String(p.id)], log)}`);
       await ctx.reply(lines.join('\n'), { reply_markup: { remove_keyboard: true } });
+    },
+    async cancelled(ctx, next) {
+      if (!isOwner(ctx)) return next();
+      await ctx.reply('Cancelled.', { reply_markup: { remove_keyboard: true } });
     },
     async pressed(ctx) {
       const query = ctx.callbackQuery;

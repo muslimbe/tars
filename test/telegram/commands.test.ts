@@ -424,12 +424,22 @@ describe('access management', () => {
     const keyboard = t.fake.sent()[0]?.payload.reply_markup as { keyboard: { text: string; request_users?: object; request_chat?: object }[][] };
     expect(t.replies()).toEqual(['Who should get access? Pick below, or use /allow <user|group> <id>.']);
     expect(keyboard.keyboard[0]?.map((b) => [b.text, Boolean(b.request_users), Boolean(b.request_chat)])).toEqual([['👤 Pick users', true, false], ['👥 Pick a group', false, true]]);
+    expect(keyboard.keyboard[1]?.map((b) => b.text)).toEqual(['✖️ Cancel']);
     await t.send('', { extra: { text: undefined, users_shared: { request_id: 1, users: [{ user_id: 5, first_name: 'Jasur' }, { user_id: 6 }] } } });
     await t.send('', { extra: { text: undefined, chat_shared: { request_id: 2, chat_id: -100777, title: 'Support' } } });
     await t.send('', { from: STRANGER, extra: { text: undefined, users_shared: { request_id: 1, users: [{ user_id: 9 }] } } });
     expect(JSON.parse(readFileSync(t.accessPath, 'utf8'))).toEqual({ policy: 'owner_only', allowed_users: [5, 6], allowed_chats: [-100777] });
     expect(t.replies().slice(1)).toEqual(['Jasur: User 5 added to allowlist.\nUser 6 added to allowlist.', 'Support: Group -100777 added to allowlist.']);
     expect(t.fake.sent()[1]?.payload.reply_markup).toEqual({ remove_keyboard: true });
+  });
+
+  it("the picker's cancel button removes the keyboard for the owner; anyone else's same text is a normal message", async () => {
+    const t = setup({ policy: 'allowlist', allowed_users: [STRANGER], allowed_chats: [] });
+    await t.send('✖️ Cancel');
+    expect(t.fake.sent().map((c) => [c.payload.text, c.payload.reply_markup])).toEqual([['Cancelled.', { remove_keyboard: true }]]);
+    expect(t.engine.submitted).toEqual([]);
+    await t.send('✖️ Cancel', { from: STRANGER });
+    expect(t.engine.submitted.map((m) => m.text)).toEqual(['✖️ Cancel']);
   });
 
   it('/deny removes the id (every copy) and says when it was not there', async () => {

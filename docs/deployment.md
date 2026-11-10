@@ -137,7 +137,7 @@ Only `TARS_OWNER_ID` can use them; for anyone else they silently do nothing. The
 
 ```
 /access                     policy and allowlists
-/allow                      in the owner's DM: Telegram's user and group pickers — no ids needed
+/allow                      in the owner's DM: Telegram's user and group pickers (or Cancel) — no ids needed
 /allow user|group <id>      add to the allowlist
 /deny user|group <id>       remove from it
 /policy owner_only|allowlist|open
