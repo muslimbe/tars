@@ -107,11 +107,13 @@ describe('dispatcher', () => {
         chat_id: OWNER,
         text: "🔒 Rasul @rasul (333) wrote to me but isn't on the allowlist:\n«hi»",
         reply_markup: { inline_keyboard: [[{ text: '✅ Allow', callback_data: 'allow user 333' }, { text: '🚫 Ignore', callback_data: 'ignore' }]] },
+        link_preview_options: { is_disabled: true },
       },
       {
         chat_id: OWNER,
         text: "🔒 A message came from the group «Sales» (-999), which isn't on the allowlist.\nFrom U444 (444): «group hi»",
         reply_markup: { inline_keyboard: [[{ text: '✅ Allow', callback_data: 'allow group -999' }, { text: '🚫 Ignore', callback_data: 'ignore' }]] },
+        link_preview_options: { is_disabled: true },
       },
     ]);
   });

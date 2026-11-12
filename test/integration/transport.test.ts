@@ -76,7 +76,7 @@ describe('Telegram transport', () => {
     const t = await started();
     const id = t.telegram.message({ id: OWNER.id }, OWNER, '#fake text forgotten *answer*\n#fake control {"action":"stop","reason":"x"}');
     const rescued = await t.telegram.waitFor('sendMessage', (p) => p.text === 'forgotten *answer*', 15_000);
-    expect(rescued.payload).toEqual({ chat_id: OWNER.id, text: 'forgotten *answer*', reply_parameters: { message_id: id } });
+    expect(rescued.payload).toEqual({ chat_id: OWNER.id, text: 'forgotten *answer*', reply_parameters: { message_id: id }, link_preview_options: { is_disabled: true } });
     t.telegram.fail('sendMessage', 403, 'Forbidden: bot was blocked by the user');
     t.telegram.message({ id: OWNER.id }, OWNER, '#fake text lost\n#fake control {"action":"stop","reason":"x"}');
     await until(() => t.log.text().includes(`WARNING error notify failed for chat ${OWNER.id}: `));
