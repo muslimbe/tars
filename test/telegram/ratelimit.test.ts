@@ -13,7 +13,7 @@ const OWNER = 1;
 describe('DM rate limit', () => {
   it('counts per user per wall-clock minute, notifies once, and prunes old buckets on every check', () => {
     const db = open();
-    const check = (userId: number, now: number) => checkRateLimit(db, { userId, ownerId: OWNER, limit: 2 }, now);
+    const check = (userId: number, now: number) => checkRateLimit(db, { userId, ownerIds: [OWNER], limit: 2 }, now);
     expect(check(7, 6000.9)).toEqual({ limited: false });
     expect(check(7, 6010)).toEqual({ limited: false });
     expect(check(8, 6010)).toEqual({ limited: false });
@@ -30,8 +30,8 @@ describe('DM rate limit', () => {
 
   it('exempts the owner (no row at all), and a zero limit refuses every other DM', () => {
     const db = open();
-    expect(checkRateLimit(db, { userId: OWNER, ownerId: OWNER, limit: 0 }, 100)).toEqual({ limited: false });
+    expect(checkRateLimit(db, { userId: OWNER, ownerIds: [OWNER], limit: 0 }, 100)).toEqual({ limited: false });
     expect(db.prepare('SELECT count(*) FROM rate_limits').pluck().get()).toBe(0);
-    expect(checkRateLimit(db, { userId: 5, ownerId: OWNER, limit: 0 }, 100)).toMatchObject({ limited: true, notify: true });
+    expect(checkRateLimit(db, { userId: 5, ownerIds: [OWNER], limit: 0 }, 100)).toMatchObject({ limited: true, notify: true });
   });
 });

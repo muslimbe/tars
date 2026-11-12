@@ -14,7 +14,7 @@ import { logQuotes } from './commands/logs.ts';
 import type { CommandHandler } from './dispatcher.ts';
 
 export interface CommandDeps {
-  config: Pick<Config, 'ownerId' | 'accessPath' | 'dataDir' | 'memoriesDir' | 'logDir'>;
+  config: Pick<Config, 'ownerIds' | 'accessPath' | 'dataDir' | 'memoriesDir' | 'logDir'>;
   db: Db;
   engine: TurnState & {
     stashRestoreContext(reason: string): void;
@@ -39,7 +39,7 @@ const COMMANDS: { command: string; description: string; run: Command }[] = [
   { command: 'health', description: 'quick health readout', run: (ctx, _args, d) => reply(ctx, healthText(d.db, d.engine, d.pause.paused), 'Markdown') },
   { command: 'audit', description: 'recent failures, backups, memory footprint', run: (ctx, _args, d) => reply(ctx, auditText(d.db, d.config), 'Markdown') },
   { command: 'logs', description: 'tail recent log lines: /logs [N]', run: (ctx, args, d) => logs(ctx, join(d.config.logDir, 'tars.log'), args) },
-  { command: 'access', description: 'show access policy', run: (ctx, _args, d) => reply(ctx, accessText(d.config.accessPath, d.config.ownerId, d.log)) },
+  { command: 'access', description: 'show access policy', run: (ctx, _args, d) => reply(ctx, accessText(d.config.accessPath, d.config.ownerIds, d.log)) },
   { command: 'allow', description: 'add to allowlist: pick, or /allow <user|group> <id>', run: (ctx, args, d) => allowCommand(ctx, args, d) },
   { command: 'deny', description: 'remove from allowlist: /deny <user|group> <id>', run: (ctx, args, d) => reply(ctx, deny(d.config.accessPath, args, d.log)) },
   { command: 'policy', description: 'set policy: /policy <owner_only|allowlist|open>', run: (ctx, args, d) => reply(ctx, setPolicy(d.config.accessPath, args, d.log)) },
@@ -58,20 +58,23 @@ export function createCommands(deps: CommandDeps): CommandHandler {
   return async (ctx, { name, args }) => {
     const command = COMMANDS.find((c) => c.command === name);
     if (!command) return false;
-    if (ctx.from?.id === deps.config.ownerId) await command.run(ctx, args, deps);
+    if (deps.config.ownerIds.includes(ctx.from?.id ?? 0)) await command.run(ctx, args, deps);
     return true;
   };
 }
 
 /**
- * Show the owner commands in the owner's own chat only (nobody else gets a
+ * Show the owner commands in the owner's own chats only (nobody else gets a
  * menu). Run at startup before polling; a failure is logged and startup goes on.
  */
-export async function registerCommandMenu(api: Api, ownerId: number, log: Logger): Promise<void> {
-  try {
-    await api.setMyCommands(COMMANDS.map(({ command, description }) => ({ command, description })), { scope: { type: 'chat', chat_id: ownerId } });
-  } catch (err) {
-    log.error('failed to register owner-scoped bot commands', { err });
+export async function registerCommandMenu(api: Api, ownerIds: readonly number[], log: Logger): Promise<void> {
+  const commands = COMMANDS.map(({ command, description }) => ({ command, description }));
+  for (const chatId of ownerIds) {
+    try {
+      await api.setMyCommands(commands, { scope: { type: 'chat', chat_id: chatId } });
+    } catch (err) {
+      log.error(`failed to register owner-scoped bot commands for ${chatId}`, { err });
+    }
   }
 }
 

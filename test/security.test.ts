@@ -21,7 +21,7 @@ function spec(over: Partial<SpawnSpec> = {}): SpawnSpec {
   writeFileSync(join(dir, 'prompts/subagents.md'), '# Subagents\nSubagents are read-only helpers.');
   writeFileSync(join(dir, 'mcp.json'), '{}');
   return {
-    binary: 'claude', model: 'm', effort: 'high', ownerId: 42, systemPromptPath: join(dir, 'prompts/system.md'), projectPromptPath: join(dir, 'prompts/project.md'),
+    binary: 'claude', model: 'm', effort: 'high', ownerIds: [42], systemPromptPath: join(dir, 'prompts/system.md'), projectPromptPath: join(dir, 'prompts/project.md'),
     subagentsPromptPath: join(dir, 'prompts/subagents.md'), mcpConfigPath: join(dir, 'mcp.json'), enableBash: false, enableCode: false, enableRead: false, enableSubagents: false, projectsDir: '/app/projects', writableDirs: [],
     mcpAllowedTools: [], tarsToolNames: ['time_now'], skillsIndex: '', memoryIndex: '', ...over,
   };

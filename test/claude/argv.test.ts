@@ -10,7 +10,7 @@ function spec(overrides: Partial<SpawnSpec> = {}): SpawnSpec {
   const dir = tempDir();
   for (const name of ['system.md', 'mcp.json']) writeFileSync(join(dir, name), name === 'mcp.json' ? '{}' : '# System\n');
   return {
-    binary: 'claude', model: 'm', effort: 'high', ownerId: 42,
+    binary: 'claude', model: 'm', effort: 'high', ownerIds: [42],
     systemPromptPath: join(dir, 'system.md'), projectPromptPath: join(dir, 'project.md'), subagentsPromptPath: join(dir, 'subagents.md'),
     mcpConfigPath: join(dir, 'mcp.json'), enableBash: false, enableCode: false, enableRead: false, enableSubagents: false, projectsDir: '/app/projects', writableDirs: [],
     mcpAllowedTools: [], tarsToolNames: ['time_now'], skillsIndex: '', memoryIndex: '',
@@ -30,5 +30,13 @@ describe('claude argv inputs', () => {
     expect(() => buildArgv(s)).toThrow(`subagents are enabled but the subagent prompt is missing: ${s.subagentsPromptPath}`);
     writeFileSync(s.subagentsPromptPath, '# Subagents\n');
     expect(buildArgv(s)[13]).toMatch(/# Subagents\n$/);
+  });
+
+  it("names every owner account, so the owner's rules cover them all", () => {
+    expect(buildArgv(spec()).join('\n')).toContain('The owner\'s Telegram user_id is `42`. A `<msg>` with `user="42"` is the owner; any other user_id is not');
+    expect(buildArgv(spec({ ownerIds: [42, 77] })).join('\n')).toContain(
+      "The owner's Telegram user_ids are `42`, `77` — the same person's accounts, with the same rights; a DM with any of them is the owner's DM. " +
+        'A `<msg>` whose `user` is one of them is the owner; any other user_id is not',
+    );
   });
 });

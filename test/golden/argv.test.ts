@@ -52,7 +52,7 @@ function argvFor(base: string, c: Case): { argv: string[]; mcpConfig: string } {
   const memory = new MemoryStore(join(base, 'memories'));
   const toolNames = goldenRegistry([...plugins.builtinToolsDisabled]).tools.map((t) => t.name);
   const mcpConfigPath = writeMcpConfig(join(tempDir(), 'mcp.json'), 'http://127.0.0.1:41234/mcp', plugins, log);
-  const config = { claudeCodeBin: 'claude', model: 'claude-opus-4-7', effort: 'high', ownerId: 42, promptsDir: join(base, 'prompts'), projectsDir: join(base, 'projects') };
+  const config = { claudeCodeBin: 'claude', model: 'claude-opus-4-7', effort: 'high', ownerIds: [42], promptsDir: join(base, 'prompts'), projectsDir: join(base, 'projects') };
   const indexes = () => ({ skills: renderSkillsIndex(skills), memory: renderMemoryIndex(memory) });
   const spec = spawnSpec(config, plugins, { mcpConfigPath, toolNames, indexes });
   return { argv: buildArgv(spec(loadSessionId(sessionPath, log))), mcpConfig: mcpConfigPath };

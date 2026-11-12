@@ -37,10 +37,10 @@ export function setPolicy(path: string, args: string[], log: Logger): string {
 }
 
 /** `/access`: the policy and both lists. */
-export function accessText(path: string, ownerId: number, log: Logger): string {
+export function accessText(path: string, ownerIds: readonly number[], log: Logger): string {
   const access = loadAccess(path, log);
   const list = (ids: number[]) => ids.join(', ') || '(none)';
-  return `Policy: ${access.policy}\nAllowed users: ${list(access.allowedUsers)}\nAllowed chats: ${list(access.allowedChats)}\nOwner: ${ownerId} (always allowed)`;
+  return `Policy: ${access.policy}\nAllowed users: ${list(access.allowedUsers)}\nAllowed chats: ${list(access.allowedChats)}\nOwner: ${ownerIds.join(', ')} (always allowed)`;
 }
 
 type Target = { list: 'allowedUsers' | 'allowedChats'; label: 'User' | 'Group'; id: number };

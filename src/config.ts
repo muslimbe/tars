@@ -10,7 +10,10 @@ export const PROJECT_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 export interface Config {
   telegramBotToken: string;
+  /** The owner's main account: notices, reminders and blocked-chat alerts go here. */
   ownerId: number;
+  /** Every account with owner rights: `ownerId` first, then `TARS_OWNER_ALT_IDS`. */
+  ownerIds: readonly number[];
   model: string;
   effort: string;
   claudeCodeBin: string;
@@ -23,7 +26,7 @@ export interface Config {
   rateLimitPerMin: number;
   /** `addressed`: a group message reaches the model only if the owner wrote it, or it mentions or replies to the bot or the owner. */
   groupMessages: 'all' | 'addressed';
-  /** More user ids `addressed` treats like the owner (an owner's second account); no owner rights. */
+  /** More user ids `addressed` treats like the owner; no owner rights. */
   groupAddressees: readonly number[];
   attachmentMaxBytes: number;
   toolErrorMaxCount: number;
@@ -130,6 +133,7 @@ const userIds = (name: string) =>
 const ENV = z.object({
   TELEGRAM_BOT_TOKEN: required('TELEGRAM_BOT_TOKEN'),
   TARS_OWNER_ID: int('TARS_OWNER_ID'),
+  TARS_OWNER_ALT_IDS: userIds('TARS_OWNER_ALT_IDS'),
   TARS_MODEL: required('TARS_MODEL'),
   TARS_EFFORT: required('TARS_EFFORT'),
   CLAUDE_CODE_BIN: text('claude'),
@@ -170,6 +174,7 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>, cw
   return Object.freeze({
     telegramBotToken: e.TELEGRAM_BOT_TOKEN,
     ownerId: e.TARS_OWNER_ID,
+    ownerIds: [e.TARS_OWNER_ID, ...e.TARS_OWNER_ALT_IDS],
     model: e.TARS_MODEL,
     effort: e.TARS_EFFORT,
     claudeCodeBin: e.CLAUDE_CODE_BIN,

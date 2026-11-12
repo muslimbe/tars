@@ -29,14 +29,14 @@ function setup(access: object = { policy: 'allowlist', allowed_users: [222], all
   const commands: string[] = [];
   const dispatcher = new Dispatcher({
     bot,
-    config: { ownerId: OWNER, accessPath: join(dir, 'access.json'), rateLimitPerMin, groupMessages, groupAddressees: [444] },
+    config: { ownerIds: [OWNER], accessPath: join(dir, 'access.json'), rateLimitPerMin, groupMessages, groupAddressees: [444] },
     db,
     engine: { submit: (m) => Promise.resolve(void submitted.push(m)), primeTyping: (c) => void primed.push(c) },
     chatTitles: new Map(),
     transcript: new Transcript(log, 'compact'),
     log,
     commands: (_ctx, c) => Promise.resolve(c.name === 'health' && commands.push(c.name) > 0),
-    accessUi: createAccessUi({ api: bot.api, config: { ownerId: OWNER, accessPath: join(dir, 'access.json') }, log }),
+    accessUi: createAccessUi({ api: bot.api, config: { ownerId: OWNER, ownerIds: [OWNER], accessPath: join(dir, 'access.json') }, log }),
     members: new GroupMembers({ api: bot.api, log }),
     attachments: () => Promise.resolve(),
   });

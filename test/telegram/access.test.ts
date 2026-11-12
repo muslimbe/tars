@@ -14,20 +14,27 @@ const group = (chatId: number, userId = 7) => ({ chatId, userId, chatType: 'supe
 
 describe('access gate', () => {
   it('owner_only lets only the owner DM and blocks every group', () => {
-    expect(gate(access('owner_only'), OWNER, dm(OWNER))).toBe(true);
-    expect(gate(access('owner_only'), OWNER, dm(2))).toBe(false);
-    expect(gate(access('owner_only', [], [-100]), OWNER, group(-100, OWNER))).toBe(false);
+    expect(gate(access('owner_only'), [OWNER], dm(OWNER))).toBe(true);
+    expect(gate(access('owner_only'), [OWNER], dm(2))).toBe(false);
+    expect(gate(access('owner_only', [], [-100]), [OWNER], group(-100, OWNER))).toBe(false);
+  });
+
+  it("lets the owner's other accounts DM like the owner, but not into groups", () => {
+    const owners = [OWNER, 9];
+    expect(gate(access('owner_only'), owners, dm(9))).toBe(true);
+    expect(gate(access('allowlist'), owners, dm(9))).toBe(true);
+    expect(gate(access('allowlist', [], [-100]), owners, group(-200, 9))).toBe(false);
   });
 
   it('allowlist decides DMs by user and groups by chat; open allows all', () => {
     const a = access('allowlist', [2], [-100]);
-    expect(gate(a, OWNER, dm(OWNER))).toBe(true);
-    expect(gate(a, OWNER, dm(2))).toBe(true);
-    expect(gate(a, OWNER, dm(3))).toBe(false);
-    expect(gate(a, OWNER, group(-100))).toBe(true);
-    expect(gate(a, OWNER, group(-200, OWNER))).toBe(false);
-    expect(gate(a, OWNER, { chatId: 3, userId: 2, chatType: undefined })).toBe(true);
-    expect(gate(access('open'), OWNER, group(-999, 5))).toBe(true);
+    expect(gate(a, [OWNER], dm(OWNER))).toBe(true);
+    expect(gate(a, [OWNER], dm(2))).toBe(true);
+    expect(gate(a, [OWNER], dm(3))).toBe(false);
+    expect(gate(a, [OWNER], group(-100))).toBe(true);
+    expect(gate(a, [OWNER], group(-200, OWNER))).toBe(false);
+    expect(gate(a, [OWNER], { chatId: 3, userId: 2, chatType: undefined })).toBe(true);
+    expect(gate(access('open'), [OWNER], group(-999, 5))).toBe(true);
   });
 });
 

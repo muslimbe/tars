@@ -79,12 +79,12 @@ export function saveAccess(path: string, access: Access): void {
 
 /**
  * Should an inbound message be accepted? DMs are decided by sender, groups
- * by chat. The owner is always allowed in DMs, never automatically in groups.
+ * by chat. The owner's accounts are always allowed in DMs, never automatically in groups.
  */
-export function gate(access: Access, ownerId: number, from: { chatId: number; userId: number; chatType: string | undefined }): boolean {
+export function gate(access: Access, ownerIds: readonly number[], from: { chatId: number; userId: number; chatType: string | undefined }): boolean {
   const isGroup = from.chatType === 'group' || from.chatType === 'supergroup' || from.chatType === 'channel';
-  if (access.policy === 'owner_only') return !isGroup && from.userId === ownerId;
+  if (access.policy === 'owner_only') return !isGroup && ownerIds.includes(from.userId);
   if (access.policy === 'open') return true;
   if (isGroup) return access.allowedChats.includes(from.chatId);
-  return from.userId === ownerId || access.allowedUsers.includes(from.userId);
+  return ownerIds.includes(from.userId) || access.allowedUsers.includes(from.userId);
 }

@@ -54,6 +54,12 @@ describe('config', () => {
     expect(() => load({ TARS_GROUP_ADDRESSEES: '@someone' })).toThrow('TARS_GROUP_ADDRESSEES must be comma-separated user ids, got "@someone"');
   });
 
+  it("lists the owner's other accounts after the main one", () => {
+    expect(load()).toMatchObject({ ownerId: 42, ownerIds: [42] });
+    expect(load({ TARS_OWNER_ALT_IDS: '7580081248' })).toMatchObject({ ownerId: 42, ownerIds: [42, 7580081248] });
+    expect(() => load({ TARS_OWNER_ALT_IDS: '@work' })).toThrow('TARS_OWNER_ALT_IDS must be comma-separated user ids, got "@work"');
+  });
+
   it('derives data paths from TARS_DATA_DIR and operator files from the repo root', () => {
     const config = load({ TARS_DATA_DIR: 'var/data', TARS_ACCESS_PATH: 'conf/access.json' });
     expect(config.dataDir).toBe('/srv/app/var/data');

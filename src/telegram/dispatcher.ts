@@ -31,7 +31,7 @@ export type AttachmentIngest = (msg: Message, cm: ChatMessage) => Promise<void>;
 
 export interface DispatcherOptions {
   bot: Bot;
-  config: Pick<Config, 'ownerId' | 'accessPath' | 'rateLimitPerMin' | 'groupMessages' | 'groupAddressees'>;
+  config: Pick<Config, 'ownerIds' | 'accessPath' | 'rateLimitPerMin' | 'groupMessages' | 'groupAddressees'>;
   db: Db;
   engine: EnginePort;
   chatTitles: Map<number, string>;
@@ -120,7 +120,7 @@ export class Dispatcher {
 
   /** Hot-reload `access.json` and decide. */
   private allowed(from: { chatId: number; userId: number }, chatType: string | undefined): boolean {
-    return gate(loadAccess(this.o.config.accessPath, this.log), this.o.config.ownerId, { ...from, chatType });
+    return gate(loadAccess(this.o.config.accessPath, this.log), this.o.config.ownerIds, { ...from, chatType });
   }
 
   /** The gate, or a DM from a member of an allowed group; writes the `[RX]`/`[DROP]` transcript line. */
@@ -128,7 +128,7 @@ export class Dispatcher {
     const access = loadAccess(this.o.config.accessPath, this.log);
     const from = { chatId: cm.chatId, userId: cm.userId, chatType };
     const viaGroup = () => chatType === 'private' && access.policy === 'allowlist' && this.o.members.isMember(cm.userId, access.allowedChats);
-    const ok = gate(access, this.o.config.ownerId, from) || (await viaGroup());
+    const ok = gate(access, this.o.config.ownerIds, from) || (await viaGroup());
     const chat = { chatId: cm.chatId, title: this.o.chatTitles.get(cm.chatId), chatType };
     const user = { id: cm.userId, name: cm.firstName || cm.username };
     this.o.transcript.inbound(chat, user, { messageId: cm.messageId, text: cm.text, replyToId: cm.replyToId }, ok);
@@ -142,9 +142,9 @@ export class Dispatcher {
     return cm.audience !== 'none' || this.o.config.groupMessages === 'all';
   }
 
-  /** Who a group message is for; the people are the owner and `TARS_GROUP_ADDRESSEES`. */
+  /** Who a group message is for; the people are the owner's accounts and `TARS_GROUP_ADDRESSEES`. */
   private audience(msg: Message, me: UserFromGetMe): Audience {
-    const people = [this.o.config.ownerId, ...this.o.config.groupAddressees].map((id) => ({ id, username: latestUsername(this.o.db, id) }));
+    const people = [...this.o.config.ownerIds, ...this.o.config.groupAddressees].map((id) => ({ id, username: latestUsername(this.o.db, id) }));
     return audienceOf(msg, { botId: me.id, botUsername: me.username, people });
   }
 
@@ -164,7 +164,7 @@ export class Dispatcher {
   /** Per-user DM limit (groups and the owner are exempt); one notice per exhausted minute. */
   private async underRateLimit(cm: ChatMessage, chatType: string): Promise<boolean> {
     if (chatType !== 'private') return true;
-    const decision = checkRateLimit(this.o.db, { userId: cm.userId, ownerId: this.o.config.ownerId, limit: this.o.config.rateLimitPerMin });
+    const decision = checkRateLimit(this.o.db, { userId: cm.userId, ownerIds: this.o.config.ownerIds, limit: this.o.config.rateLimitPerMin });
     if (!decision.limited) return true;
     if (decision.notify) {
       const text = `⏳ You're sending messages too fast (${decision.limit}/min). Try again in ~${decision.retryAfterS}s.`;
