@@ -36,6 +36,7 @@ import { createBot } from './telegram/bot.ts';
 import { createCommands, registerCommandMenu } from './telegram/commands.ts';
 import { createAccessUi } from './telegram/commands/access-ui.ts';
 import { type CommandHandler, Dispatcher } from './telegram/dispatcher.ts';
+import { GroupMembers } from './telegram/members.ts';
 import { buildTools } from './tools/index.ts';
 
 export interface AppOptions {
@@ -277,6 +278,7 @@ export class App {
       bot, config: c, db, engine, chatTitles: this.chatTitles, transcript: this.transcript, log, attachments,
       commands: (ctx, command) => commands(ctx, command),
       accessUi: createAccessUi({ api: bot.api, config: c, log }),
+      members: new GroupMembers({ api: bot.api, log }),
     });
     commands = createCommands({ config: c, db, engine, pause: dispatcher, log, kill: () => this.o.onKill() });
     await registerCommandMenu(bot.api, c.ownerId, log);
