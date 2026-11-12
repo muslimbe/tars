@@ -14,7 +14,7 @@ describe('telegram_edit_message', () => {
     seedMessage(t.db, 111, 7, 'old');
     t.db.prepare('UPDATE messages SET processed=1').run();
     const out = await call(editMessageTool(t.ctx), { chat_id: 111, message_id: 7, text: '**new**' });
-    expect(t.fake.sent('editMessageText')[0]?.payload).toEqual({ chat_id: 111, message_id: 7, text: '<b>new</b>', parse_mode: 'HTML' });
+    expect(t.fake.sent('editMessageText')[0]?.payload).toEqual({ chat_id: 111, message_id: 7, text: '<b>new</b>', parse_mode: 'HTML', link_preview_options: { is_disabled: true } });
     expect(out).toEqual({ content: 'edited message_id=7', data: { message_id: 7, chat_id: 111 } });
     expect(messageRow(t.db, 111, 7)).toMatchObject({ text: '**new**', edited: 1, processed: 0 });
     expect(t.log.text()).toContain('[EDIT] DM Ali[111] m7 | **new**');

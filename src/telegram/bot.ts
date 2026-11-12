@@ -13,11 +13,13 @@ export interface BotOptions {
  * The grammY bot shared by the dispatcher and every tool. Outbound calls are
  * throttled to Telegram's limits (30/s overall,
  * 20/min per group) and a 429 is retried after Telegram's `retry_after`.
+ * Link previews are off: links show as plain text (owner's choice).
  */
 export function createBot(token: string, options: BotOptions = {}): Bot {
   const bot = new Bot(token, options.botInfo ? { botInfo: options.botInfo } : {});
   // Transformers installed later wrap earlier ones: the network sits innermost.
   if (options.network) bot.api.config.use(options.network);
+  bot.api.config.use(noLinkPreviews);
   bot.api.config.use(autoRetry({ maxRetryAttempts: 3, maxDelaySeconds: 60 }));
   bot.api.config.use(
     apiThrottler({
@@ -28,3 +30,6 @@ export function createBot(token: string, options: BotOptions = {}): Bot {
   );
   return bot;
 }
+
+const noLinkPreviews: Transformer = (prev, method, payload, signal) =>
+  prev(method, method === 'sendMessage' || method === 'editMessageText' ? { ...payload, link_preview_options: { is_disabled: true } } : payload, signal);

@@ -31,7 +31,7 @@ describe('telegram_send_message / telegram_reply_to_message', () => {
   it('sends Markdown as HTML into the topic and reports the id', async () => {
     const t = setup();
     const out = await t.send.run({ chat_id: -100, text: '**hi**', reply_to_message_id: null, message_thread_id: 7 });
-    expect(t.fake.sent()[0]?.payload).toEqual({ chat_id: -100, text: '<b>hi</b>', parse_mode: 'HTML', message_thread_id: 7 });
+    expect(t.fake.sent()[0]?.payload).toEqual({ chat_id: -100, text: '<b>hi</b>', parse_mode: 'HTML', message_thread_id: 7, link_preview_options: { is_disabled: true } });
     expect(out).toEqual({ content: 'sent message_id=5001', data: { message_id: 5001, message_ids: [5001], chat_id: -100 } });
     expect(t.replied).toEqual([-100]);
   });
