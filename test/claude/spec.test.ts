@@ -21,7 +21,7 @@ describe('spawn spec helpers', () => {
   });
 
   it('resolves writable_projects under the projects folder', () => {
-    const config = { claudeCodeBin: 'claude', model: 'm', effort: 'high', ownerId: 1, promptsDir: '/app/prompts', projectsDir: '/app/projects' };
+    const config = { claudeCodeBin: 'claude', model: 'm', effort: 'high', ownerIds: [1], promptsDir: '/app/prompts', projectsDir: '/app/projects' };
     const plugins = { toolGroups: { read: true }, mcps: [], writableProjects: ['billing/docs'] };
     const s = spawnSpec(config, plugins, { mcpConfigPath: '/x/mcp.json', toolNames: [], indexes: () => ({ skills: '', memory: '' }) })(undefined);
     expect(s).toMatchObject({ enableRead: true, projectsDir: '/app/projects', writableDirs: ['/app/projects/billing/docs'] });

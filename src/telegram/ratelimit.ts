@@ -7,11 +7,11 @@ export type RateDecision = { limited: false } | { limited: true; limit: number; 
 
 /**
  * Per-user DM rate limit with persistent fixed-window counters (they survive
- * restarts). The owner is exempt. `notify` is true exactly once per user per
+ * restarts). The owner's accounts are exempt. `notify` is true exactly once per user per
  * exhausted window, so the user gets one notice.
  */
-export function checkRateLimit(db: Db, opts: { userId: number; ownerId: number; limit: number }, nowSeconds = Date.now() / 1000): RateDecision {
-  if (opts.userId === opts.ownerId) return { limited: false };
+export function checkRateLimit(db: Db, opts: { userId: number; ownerIds: readonly number[]; limit: number }, nowSeconds = Date.now() / 1000): RateDecision {
+  if (opts.ownerIds.includes(opts.userId)) return { limited: false };
   const now = Math.floor(nowSeconds);
   const bucket = Math.floor(now / WINDOW_SECONDS) * WINDOW_SECONDS;
   db.prepare('DELETE FROM rate_limits WHERE bucket_start < ?').run(bucket - 2 * WINDOW_SECONDS);

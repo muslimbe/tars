@@ -281,7 +281,7 @@ export class App {
       members: new GroupMembers({ api: bot.api, log }),
     });
     commands = createCommands({ config: c, db, engine, pause: dispatcher, log, kill: () => this.o.onKill() });
-    await registerCommandMenu(bot.api, c.ownerId, log);
+    await registerCommandMenu(bot.api, c.ownerIds, log);
     bot.catch((err) => log.error('error while handling a Telegram update', { err: err.error }));
     await this.startPolling(bot, log);
   }

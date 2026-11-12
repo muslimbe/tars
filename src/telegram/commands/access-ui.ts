@@ -45,12 +45,12 @@ export interface AccessUi {
 
 export interface AccessUiDeps {
   api: Api;
-  config: Pick<Config, 'ownerId' | 'accessPath'>;
+  config: Pick<Config, 'ownerId' | 'ownerIds' | 'accessPath'>;
   log: Logger;
 }
 
 export function createAccessUi({ api, config, log }: AccessUiDeps): AccessUi {
-  const isOwner = (ctx: Context) => ctx.from?.id === config.ownerId;
+  const isOwner = (ctx: Context) => config.ownerIds.includes(ctx.from?.id ?? 0);
   return {
     async picked(ctx) {
       if (!isOwner(ctx) || !ctx.msg) return;

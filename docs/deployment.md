@@ -87,6 +87,7 @@ Read once at boot (a variable already set in the environment wins over the file)
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | required | From @BotFather. |
 | `TARS_OWNER_ID` | required | Your numeric Telegram user id (ask @userinfobot). |
+| `TARS_OWNER_ALT_IDS` | — | Comma-separated ids of your other accounts (e.g. a work account), with full owner rights. Notices still go to `TARS_OWNER_ID`. |
 | `CLAUDE_CODE_OAUTH_TOKEN` | required | From `claude setup-token`; read by Claude Code, not tars. |
 | `TARS_MODEL` | required | Passed to `--model`, e.g. `claude-sonnet-4-6`. |
 | `TARS_EFFORT` | required | Passed to `--effort`: `low`, `medium`, `high`, `xhigh` or `max`. |
@@ -97,7 +98,7 @@ Read once at boot (a variable already set in the environment wins over the file)
 | `TARS_DEBOUNCE_MS` | `0` | Wait this long after a message so a burst becomes one turn. |
 | `TARS_RATE_LIMIT_PER_MIN` | `20` | DMs per minute from one user; groups and the owner aren't limited. |
 | `TARS_GROUP_MESSAGES` | `all` | `addressed`: a group message reaches Claude only if the owner wrote it, or it mentions or replies to the bot or the owner; the rest is dropped unstored. Needs privacy mode off in BotFather, or Telegram won't deliver the owner mentions. |
-| `TARS_GROUP_ADDRESSEES` | — | Comma-separated user ids that `addressed` treats like the owner, e.g. the owner's work account. Owner rights stay with `TARS_OWNER_ID`. |
+| `TARS_GROUP_ADDRESSEES` | — | Comma-separated user ids that `addressed` treats like the owner, e.g. a colleague. They get no owner rights. |
 | `TARS_ATTACHMENT_MAX_BYTES` | `20000000` | Largest inbound photo or document the bot will download. |
 | `TARS_BROWSER_HEADLESS` | `true` | `false` shows the browser window, for local debugging. |
 | `TARS_SELF_REFLECTION_ENABLED` | `true` | The daily self-reflection loop; `false` cancels it at the next boot. |
@@ -135,7 +136,7 @@ A blocked message never reaches Claude, the history or memory; it's kept 30 days
 
 ### Owner commands
 
-Only `TARS_OWNER_ID` can use them; for anyone else they silently do nothing. They're handled before the access gate and `/pause`, and never reach the model.
+Only `TARS_OWNER_ID` and `TARS_OWNER_ALT_IDS` can use them; for anyone else they silently do nothing. They're handled before the access gate and `/pause`, and never reach the model.
 
 ```
 /access                     policy and allowlists

@@ -19,6 +19,8 @@ import { tempDir } from '../helpers/tmp.ts';
 
 const OWNER = 111;
 const STRANGER = 333;
+/** The owner's second account. */
+const ALT = 777;
 const COMMANDS = ['kill', 'reset_session', 'pause', 'resume', 'health', 'audit', 'logs', 'allow', 'deny', 'policy', 'access'];
 const RESET_REPLY =
   'Session cleared — Claude restarted with a fresh context. Chat history and memories are preserved; a short recap of recent messages will be carried into the next turn.';
@@ -47,7 +49,7 @@ function setup(access: object = { policy: 'owner_only', allowed_users: [], allow
     resetSession: () => Promise.resolve(void engine.calls.push('reset')),
   };
   const kills: string[] = [];
-  const config = { ownerId: OWNER, accessPath, rateLimitPerMin: 20, groupMessages: 'all' as const, groupAddressees: [], dataDir: dir, memoriesDir: join(dir, 'memories'), logDir: join(dir, 'logs') };
+  const config = { ownerId: OWNER, ownerIds: [OWNER, ALT], accessPath, rateLimitPerMin: 20, groupMessages: 'all' as const, groupAddressees: [], dataDir: dir, memoriesDir: join(dir, 'memories'), logDir: join(dir, 'logs') };
   let commands: CommandHandler = () => Promise.resolve(false);
   const dispatcher = new Dispatcher({
     bot,
@@ -97,6 +99,13 @@ describe('owner gate and routing', () => {
     expect(t.dispatcher.paused).toBe(false);
     expect(JSON.parse(readFileSync(t.accessPath, 'utf8'))).toEqual({ policy: 'owner_only', allowed_users: [], allowed_chats: [] });
     expect(t.db.prepare('SELECT COUNT(*) FROM unauthorized_messages').pluck().get()).toBe(0);
+  });
+
+  it("answers the owner's other account like the owner", async () => {
+    const t = setup();
+    await t.send('/allow user 5', { from: ALT });
+    expect(t.replies()).toHaveLength(1);
+    expect(JSON.parse(readFileSync(t.accessPath, 'utf8'))).toMatchObject({ allowed_users: [5] });
   });
 
   it('leaves any other /word to the message pipeline', async () => {
@@ -468,18 +477,18 @@ describe('access management', () => {
     writeFileSync(t.accessPath, JSON.stringify({ policy: 'allowlist', allowed_users: [5, '7'], allowed_chats: [-100] }));
     await t.send('/access anything');
     expect(t.replies()).toEqual([
-      `Policy: owner_only\nAllowed users: (none)\nAllowed chats: (none)\nOwner: ${OWNER} (always allowed)`,
-      `Policy: allowlist\nAllowed users: 5, 7\nAllowed chats: -100\nOwner: ${OWNER} (always allowed)`,
+      `Policy: owner_only\nAllowed users: (none)\nAllowed chats: (none)\nOwner: ${OWNER}, ${ALT} (always allowed)`,
+      `Policy: allowlist\nAllowed users: 5, 7\nAllowed chats: -100\nOwner: ${OWNER}, ${ALT} (always allowed)`,
     ]);
   });
 });
 
 describe('command menu', () => {
-  it('registers the 11 commands for the owner chat only; a failure is logged, not thrown', async () => {
+  it("registers the 11 commands in the owner's chats only; a failure is logged, not thrown", async () => {
     const fake = new FakeTelegram();
     const bot = createBot('1:t', { network: fake.transformer, botInfo: fake.botInfo });
     const log = memoryLogger();
-    await registerCommandMenu(bot.api, OWNER, log);
+    await registerCommandMenu(bot.api, [OWNER], log);
     expect(fake.sent('setMyCommands').map((c) => c.payload)).toEqual([
       {
         commands: [
@@ -499,7 +508,8 @@ describe('command menu', () => {
       },
     ]);
     fake.fail('setMyCommands', 400, 'Bad Request: BOT_COMMAND_INVALID');
-    await registerCommandMenu(bot.api, OWNER, log);
-    expect(log.records.at(-1)).toMatchObject({ level: 'ERROR', msg: 'failed to register owner-scoped bot commands' });
+    await registerCommandMenu(bot.api, [OWNER, 777], log);
+    expect(log.records.filter((r) => r.level === 'ERROR')).toMatchObject([{ msg: `failed to register owner-scoped bot commands for ${OWNER}` }]);
+    expect(fake.sent('setMyCommands').at(-1)?.payload.scope).toEqual({ type: 'chat', chat_id: 777 });
   });
 });
