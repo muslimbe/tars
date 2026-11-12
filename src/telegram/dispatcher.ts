@@ -13,6 +13,7 @@ import { type Audience, type ChatMessage, showsTyping } from '../message.ts';
 import { gate, loadAccess } from './access.ts';
 import { audienceOf } from './addressed.ts';
 import { type AccessUi, PICKER_CANCEL } from './commands/access-ui.ts';
+import type { GroupMembers } from './members.ts';
 import { checkRateLimit } from './ratelimit.ts';
 import { chatTitle, commandOf, toChatMessage } from './updates.ts';
 
@@ -39,6 +40,8 @@ export interface DispatcherOptions {
   commands: CommandHandler;
   /** User/group pickers, blocked-chat notices and their buttons. */
   accessUi: AccessUi;
+  /** Lets members of the allowed groups DM the bot under the allowlist policy. */
+  members: GroupMembers;
   attachments: AttachmentIngest;
 }
 
@@ -84,7 +87,7 @@ export class Dispatcher {
     if (this.paused) return this.log.info(`paused — dropping chat=${cm.chatId} msg=${cm.messageId}`);
     this.log.info(`hot-path stage=receipt chat=${cm.chatId} msg=${cm.messageId} t_ms=0`);
     this.rememberTitle(msg.chat);
-    if (!this.allowed(cm, msg.chat.type, true)) return this.onUnauthorized(cm, msg.chat);
+    if (!(await this.admits(cm, msg.chat.type))) return this.onUnauthorized(cm, msg.chat);
     if (!this.addressed(cm, msg, me)) return this.log.info(`not addressed — dropping chat=${cm.chatId} msg=${cm.messageId}`);
     if (!(await this.underRateLimit(cm, msg.chat.type))) return;
     await this.o.attachments(msg, cm);
@@ -99,7 +102,7 @@ export class Dispatcher {
   private onEdited(msg: Message): void {
     this.rememberTitle(msg.chat);
     const userId = msg.from?.id ?? 0;
-    if (!this.allowed({ chatId: msg.chat.id, userId }, msg.chat.type, false)) return;
+    if (!this.allowed({ chatId: msg.chat.id, userId }, msg.chat.type)) return;
     markEdited(this.o.db, [msg.chat.id, msg.message_id], msg.text ?? '');
     const author = msg.from ? { id: msg.from.id, name: msg.from.first_name || msg.from.username } : {};
     this.o.transcript.inboundEdit({ chatId: msg.chat.id, title: this.o.chatTitles.get(msg.chat.id) }, author, { messageId: msg.message_id, text: msg.text ?? '' });
@@ -110,19 +113,25 @@ export class Dispatcher {
     const evt = ctx.messageReaction;
     if (!evt?.user) return;
     this.rememberTitle(evt.chat);
-    if (!this.allowed({ chatId: evt.chat.id, userId: evt.user.id }, evt.chat.type, false)) return;
+    if (!this.allowed({ chatId: evt.chat.id, userId: evt.user.id }, evt.chat.type)) return;
     const emojis = (list: typeof evt.new_reaction) => list.flatMap((r) => (r.type === 'emoji' ? [r.emoji] : []));
     applyUserReaction(this.o.db, [evt.chat.id, evt.message_id], { userId: evt.user.id, oldEmoji: emojis(evt.old_reaction), newEmoji: emojis(evt.new_reaction) });
   }
 
-  /** Hot-reload `access.json` and decide; `log` writes the `[RX]`/`[DROP]` transcript line. */
-  allowed(cm: Pick<ChatMessage, 'chatId' | 'userId'> & Partial<ChatMessage>, chatType: string | undefined, log: boolean): boolean {
-    const ok = gate(loadAccess(this.o.config.accessPath, this.log), this.o.config.ownerId, { chatId: cm.chatId, userId: cm.userId, chatType });
-    if (log) {
-      const chat = { chatId: cm.chatId, title: this.o.chatTitles.get(cm.chatId), chatType };
-      const user = { id: cm.userId, name: cm.firstName || cm.username };
-      this.o.transcript.inbound(chat, user, { messageId: cm.messageId ?? 0, text: cm.text ?? '', replyToId: cm.replyToId }, ok);
-    }
+  /** Hot-reload `access.json` and decide. */
+  private allowed(from: { chatId: number; userId: number }, chatType: string | undefined): boolean {
+    return gate(loadAccess(this.o.config.accessPath, this.log), this.o.config.ownerId, { ...from, chatType });
+  }
+
+  /** The gate, or a DM from a member of an allowed group; writes the `[RX]`/`[DROP]` transcript line. */
+  private async admits(cm: ChatMessage, chatType: string): Promise<boolean> {
+    const access = loadAccess(this.o.config.accessPath, this.log);
+    const from = { chatId: cm.chatId, userId: cm.userId, chatType };
+    const viaGroup = () => chatType === 'private' && access.policy === 'allowlist' && this.o.members.isMember(cm.userId, access.allowedChats);
+    const ok = gate(access, this.o.config.ownerId, from) || (await viaGroup());
+    const chat = { chatId: cm.chatId, title: this.o.chatTitles.get(cm.chatId), chatType };
+    const user = { id: cm.userId, name: cm.firstName || cm.username };
+    this.o.transcript.inbound(chat, user, { messageId: cm.messageId, text: cm.text, replyToId: cm.replyToId }, ok);
     return ok;
   }
 

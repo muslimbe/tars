@@ -10,6 +10,7 @@ import type { ChatMessage } from '../../src/message.ts';
 import { createBot } from '../../src/telegram/bot.ts';
 import { createAccessUi } from '../../src/telegram/commands/access-ui.ts';
 import { Dispatcher } from '../../src/telegram/dispatcher.ts';
+import { GroupMembers } from '../../src/telegram/members.ts';
 import { FakeTelegram } from '../fakes/telegram.ts';
 import { memoryLogger } from '../helpers/log.ts';
 import { tempDir } from '../helpers/tmp.ts';
@@ -36,6 +37,7 @@ function setup(access: object = { policy: 'allowlist', allowed_users: [222], all
     log,
     commands: (_ctx, c) => Promise.resolve(c.name === 'health' && commands.push(c.name) > 0),
     accessUi: createAccessUi({ api: bot.api, config: { ownerId: OWNER, accessPath: join(dir, 'access.json') }, log }),
+    members: new GroupMembers({ api: bot.api, log }),
     attachments: () => Promise.resolve(),
   });
   let nextId = 1;
@@ -72,6 +74,26 @@ describe('dispatcher', () => {
     expect(toStrangers.map((c) => [c.payload.chat_id, c.payload.text])).toEqual([[333, 'This is a private assistant. Please contact the owner if you want an access.']]);
     expect(t.rows('unauthorized_messages')).toMatchObject([{ chat_id: 333, refusal_sent: 1 }, { chat_id: 333, refusal_sent: 0 }, { chat_id: -999, refusal_sent: 0, chat_type: 'supergroup' }]);
     expect(t.log.text()).toContain('[DROP] DM [333] U333[333] m1 (chat not allowed) | hi');
+  });
+
+  it('lets a member of an allowed group DM it under the allowlist, asking Telegram at most once a minute', async () => {
+    const t = setup();
+    t.fake.respond('getChatMember', { status: 'member', user: { id: 555, is_bot: false, first_name: 'U555' } });
+    await t.send(dm(555), 555, 'hi');
+    await t.send(dm(555), 555, 'hi again');
+    expect(t.submitted.map((m) => m.text)).toEqual(['hi', 'hi again']);
+    expect(t.fake.sent('getChatMember').map((c) => c.payload)).toEqual([{ chat_id: -100, user_id: 555 }]);
+    expect(t.log.text()).toContain('[RX] DM [555] U555[555] m1 | hi');
+  });
+
+  it('asks Telegram nothing for allowlisted users, groups, or under owner_only', async () => {
+    const t = setup({ policy: 'owner_only', allowed_users: [], allowed_chats: [-100] });
+    await t.send(dm(555), 555, 'hi');
+    writeFileSync(t.accessPath, JSON.stringify({ policy: 'allowlist', allowed_users: [222], allowed_chats: [-100] }));
+    await t.send(dm(222), 222, 'listed');
+    await t.send({ id: -100, type: 'supergroup' }, 555, 'in the group');
+    expect(t.submitted.map((m) => m.text)).toEqual(['listed', 'in the group']);
+    expect(t.fake.sent('getChatMember')).toEqual([]);
   });
 
   it("tells the owner about a chat's first blocked message, with buttons to allow or ignore it", async () => {

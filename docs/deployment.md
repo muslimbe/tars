@@ -126,8 +126,10 @@ Who may talk to the bot. Re-read on every message, so edits apply at once; the o
 | Policy | DMs | Groups |
 |---|---|---|
 | `owner_only` | the owner | none |
-| `allowlist` | the owner and `allowed_users` | `allowed_chats` |
+| `allowlist` | the owner, `allowed_users` and members of `allowed_chats` | `allowed_chats` |
 | `open` | anyone | any group |
+
+Group membership is checked with Telegram when someone off the list writes a DM, and remembered for a minute, so someone who leaves the group loses DM access within a minute.
 
 A blocked message never reaches Claude, the history or memory; it's kept 30 days in `unauthorized_messages` so you can see who's asking. In a DM, the first blocked message gets a one-time "This is a private assistant" reply; blocked groups get nothing. The owner gets a chat's first blocked message too, with **Allow** and **Ignore** buttons.
 

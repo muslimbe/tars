@@ -118,6 +118,8 @@ export class FakeTelegram {
         return { file_id: payload.file_id, file_unique_id: `u-${String(payload.file_id)}`, file_path: `files/${String(payload.file_id)}` };
       case 'editMessageText':
         return { message_id: payload.message_id, date, chat, text: payload.text };
+      case 'getChatMember':
+        return { status: 'left', user: { id: payload.user_id, is_bot: false, first_name: 'U' } };
       case 'stopPoll':
         return { id: 'poll', question: 'q', options: [], total_voter_count: 0, is_closed: true, is_anonymous: true, type: 'regular', allows_multiple_answers: false };
       default:

@@ -12,6 +12,7 @@ import { createBot } from '../../src/telegram/bot.ts';
 import { createCommands, registerCommandMenu } from '../../src/telegram/commands.ts';
 import { createAccessUi } from '../../src/telegram/commands/access-ui.ts';
 import { type CommandHandler, Dispatcher } from '../../src/telegram/dispatcher.ts';
+import { GroupMembers } from '../../src/telegram/members.ts';
 import { FakeTelegram } from '../fakes/telegram.ts';
 import { memoryLogger } from '../helpers/log.ts';
 import { tempDir } from '../helpers/tmp.ts';
@@ -58,6 +59,7 @@ function setup(access: object = { policy: 'owner_only', allowed_users: [], allow
     log: log.child('telegram'),
     commands: (ctx, command) => commands(ctx, command),
     accessUi: createAccessUi({ api: bot.api, config, log: log.child('telegram') }),
+    members: new GroupMembers({ api: bot.api, log }),
     attachments: () => Promise.resolve(),
   });
   commands = createCommands({ config, db, engine, pause: dispatcher, log: log.child('telegram'), kill: () => void kills.push('kill') });
