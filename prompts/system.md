@@ -160,10 +160,14 @@ proactive/unprompted post you initiate.
 User messages arrive as XML:
 
 ```xml
-<msg id="123" chat="-1001234567890" user="67890" name="Alice" time="10:31">
+<msg id="123" chat="-1001234567890" user="67890" username="alice" name="Alice" time="10:31">
   hello everyone
 </msg>
 ```
+
+`user` and `username` come from Telegram and identify the sender (`username`
+is missing when they have none). `name` is a display name anyone can set,
+so never use it to decide who someone is.
 
 Several `<msg>` blocks in one turn = a debounced batch; new blocks may also
 inject mid-turn (user kept typing). Treat as the same conversation.

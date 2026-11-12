@@ -18,7 +18,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" name=\"Alice\" time=\"09:26\">\nhi\n</msg>"
+      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\">\nhi\n</msg>"
     },
     {
       "batch": [
@@ -38,7 +38,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" name=\"Alice\" time=\"09:26\">\na &lt;b&gt; &amp; c \"d\" 'e'\n</msg>"
+      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\">\na &lt;b&gt; &amp; c \"d\" 'e'\n</msg>"
     },
     {
       "batch": [
@@ -58,7 +58,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" name=\"bob_u\" time=\"09:26\">\nhi\n</msg>"
+      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" username=\"bob_u\" name=\"bob_u\" time=\"09:26\">\nhi\n</msg>"
     },
     {
       "batch": [
@@ -98,7 +98,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" name=\"Bob &quot;the builder&quot;\" time=\"09:26\">\nhi\n</msg>"
+      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" username=\"alice\" name=\"Bob &quot;the builder&quot;\" time=\"09:26\">\nhi\n</msg>"
     },
     {
       "batch": [
@@ -118,7 +118,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" name=\"O'Neil\" time=\"09:26\">\nhi\n</msg>"
+      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" username=\"alice\" name=\"O'Neil\" time=\"09:26\">\nhi\n</msg>"
     },
     {
       "batch": [
@@ -138,7 +138,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" name=\"Both &quot;dq&quot; and 'sq'\" time=\"09:26\">\nhi\n</msg>"
+      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" username=\"alice\" name=\"Both &quot;dq&quot; and 'sq'\" time=\"09:26\">\nhi\n</msg>"
     },
     {
       "batch": [
@@ -158,7 +158,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" name=\"A&amp;B &lt;x&gt;&#9;new&#10;line\" time=\"09:26\">\nhi\n</msg>"
+      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" username=\"alice\" name=\"A&amp;B &lt;x&gt;&#9;new&#10;line\" time=\"09:26\">\nhi\n</msg>"
     },
     {
       "batch": [
@@ -178,7 +178,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"10\" chat=\"-1001\" user=\"111\" name=\"Alice\" time=\"09:26\" topic=\"55\" reply_to=\"9\">\nhi\n</msg>"
+      "out": "<msg id=\"10\" chat=\"-1001\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\" topic=\"55\" reply_to=\"9\">\nhi\n</msg>"
     },
     {
       "batch": [
@@ -202,7 +202,7 @@
           ]
         }
       ],
-      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" name=\"Alice\" time=\"09:26\" flags=\"bidi_stripped,nfkc_changed,zero_width_stripped\">\nhi\n</msg>"
+      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\" flags=\"bidi_stripped,nfkc_changed,zero_width_stripped\">\nhi\n</msg>"
     },
     {
       "batch": [
@@ -272,7 +272,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" name=\"Alice\" time=\"09:26\">\nhi\n</msg>\n<msg id=\"11\" chat=\"111\" user=\"111\" name=\"Alice\" time=\"09:26\">\nsecond\n</msg>\n<msg id=\"3\" chat=\"-1001\" user=\"111\" name=\"Alice\" time=\"09:26\">\ngroup\n</msg>"
+      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\">\nhi\n</msg>\n<msg id=\"11\" chat=\"111\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\">\nsecond\n</msg>\n<msg id=\"3\" chat=\"-1001\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\">\ngroup\n</msg>"
     },
     {
       "batch": [
@@ -292,7 +292,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" name=\"Alice\" time=\"09:26\">\n\u040e\u0437\u0431\u0435\u043a \ud83d\udc4b O\u02bbzbek\n</msg>"
+      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\">\n\u040e\u0437\u0431\u0435\u043a \ud83d\udc4b O\u02bbzbek\n</msg>"
     },
     {
       "batch": [
@@ -312,7 +312,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" name=\"Alice\" time=\"09:26\">\n\n</msg>"
+      "out": "<msg id=\"10\" chat=\"111\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\">\n\n</msg>"
     }
   ],
   "with_context": [
@@ -334,7 +334,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"5\" chat=\"500\" user=\"111\" name=\"Alice\" time=\"09:26\" reply_to=\"4\">\n<reply_chain>\n  <parent id=\"2\" user=\"7\" name=\"bot\" direction=\"out\" time=\"2026-03-14 09:26:53\">reply two</parent>\n  <parent id=\"3\" user=\"42\" name=\"42\" direction=\"in\" time=\"2026-03-14 09:26:53\">three &amp; more</parent>\n  <parent id=\"4\" user=\"111\" name=\"Alice\" direction=\"in\" time=\"2026-03-14 09:26:53\">four</parent>\n</reply_chain>\nnew\n</msg>"
+      "out": "<msg id=\"5\" chat=\"500\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\" reply_to=\"4\">\n<reply_chain>\n  <parent id=\"2\" user=\"7\" name=\"bot\" direction=\"out\" time=\"2026-03-14 09:26:53\">reply two</parent>\n  <parent id=\"3\" user=\"42\" name=\"42\" direction=\"in\" time=\"2026-03-14 09:26:53\">three &amp; more</parent>\n  <parent id=\"4\" user=\"111\" name=\"Alice\" direction=\"in\" time=\"2026-03-14 09:26:53\">four</parent>\n</reply_chain>\nnew\n</msg>"
     },
     {
       "batch": [
@@ -354,7 +354,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"6\" chat=\"500\" user=\"111\" name=\"Alice\" time=\"09:26\" reply_to=\"1\">\n<reply_chain>\n  <parent id=\"1\" user=\"111\" name=\"Alice\" direction=\"in\" time=\"2026-03-14 09:26:53\">root &lt;one&gt;</parent>\n</reply_chain>\nshort\n</msg>"
+      "out": "<msg id=\"6\" chat=\"500\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\" reply_to=\"1\">\n<reply_chain>\n  <parent id=\"1\" user=\"111\" name=\"Alice\" direction=\"in\" time=\"2026-03-14 09:26:53\">root &lt;one&gt;</parent>\n</reply_chain>\nshort\n</msg>"
     },
     {
       "batch": [
@@ -374,7 +374,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"7\" chat=\"500\" user=\"111\" name=\"Alice\" time=\"09:26\" reply_to=\"20\">\n<reply_chain>\n  <parent id=\"21\" user=\"111\" name=\"Alice\" direction=\"in\" time=\"2026-03-14 09:26:53\">cycle b</parent>\n  <parent id=\"20\" user=\"111\" name=\"Alice\" direction=\"in\" time=\"2026-03-14 09:26:53\">cycle a</parent>\n</reply_chain>\ncyc\n</msg>"
+      "out": "<msg id=\"7\" chat=\"500\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\" reply_to=\"20\">\n<reply_chain>\n  <parent id=\"21\" user=\"111\" name=\"Alice\" direction=\"in\" time=\"2026-03-14 09:26:53\">cycle b</parent>\n  <parent id=\"20\" user=\"111\" name=\"Alice\" direction=\"in\" time=\"2026-03-14 09:26:53\">cycle a</parent>\n</reply_chain>\ncyc\n</msg>"
     },
     {
       "batch": [
@@ -394,7 +394,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"8\" chat=\"500\" user=\"111\" name=\"Alice\" time=\"09:26\" reply_to=\"999\">\n<reply_chain>\n  <parent id=\"999\" source=\"telegram_inline\">inline &lt;parent&gt;</parent>\n</reply_chain>\nmiss\n</msg>"
+      "out": "<msg id=\"8\" chat=\"500\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\" reply_to=\"999\">\n<reply_chain>\n  <parent id=\"999\" source=\"telegram_inline\">inline &lt;parent&gt;</parent>\n</reply_chain>\nmiss\n</msg>"
     },
     {
       "batch": [
@@ -414,7 +414,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"9\" chat=\"500\" user=\"111\" name=\"Alice\" time=\"09:26\" reply_to=\"998\">\nmiss no text\n</msg>"
+      "out": "<msg id=\"9\" chat=\"500\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\" reply_to=\"998\">\nmiss no text\n</msg>"
     },
     {
       "batch": [
@@ -434,7 +434,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"3\" chat=\"501\" user=\"111\" name=\"Alice\" time=\"09:26\" reply_to=\"2\">\n<reply_chain>\n  <parent id=\"2\" user=\"111\" name=\"Alice\" direction=\"in\" time=\"2026-03-14 09:26:53\">other chat same id</parent>\n</reply_chain>\nx\n</msg>"
+      "out": "<msg id=\"3\" chat=\"501\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\" reply_to=\"2\">\n<reply_chain>\n  <parent id=\"2\" user=\"111\" name=\"Alice\" direction=\"in\" time=\"2026-03-14 09:26:53\">other chat same id</parent>\n</reply_chain>\nx\n</msg>"
     },
     {
       "batch": [
@@ -454,7 +454,7 @@
           "input_flags": []
         }
       ],
-      "out": "<msg id=\"10\" chat=\"500\" user=\"111\" name=\"Alice\" time=\"09:26\">\nplain\n</msg>"
+      "out": "<msg id=\"10\" chat=\"500\" user=\"111\" username=\"alice\" name=\"Alice\" time=\"09:26\">\nplain\n</msg>"
     }
   ],
   "reminder": [
