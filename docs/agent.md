@@ -8,9 +8,10 @@ computer does the work and opens a pull request. The work runs on the
 
 1. You write to the bot: "do BIL-123 in billing". It reads the issue and
    writes instructions for the agent (`agent_task_create`).
-2. You get the full instructions with **Run** and **Cancel** buttons, on
+2. You get the full instructions with **▶️ Boshlash** (run) and
+   **✖️ Bekor qilish** (cancel) buttons, on
    the main account or on `TARS_AGENT_APPROVER_ID`.
-   Nothing runs until an owner account presses Run. This check is in code,
+   Nothing runs until an owner account presses Boshlash. This check is in code,
    not in the prompt, so nobody can talk the bot into running something on
    your computer.
 3. `agent/tars-agent.ps1` on your computer asks the bot every 10 seconds
@@ -31,7 +32,7 @@ Your computer only makes outbound HTTPS calls. Nothing on it listens for
 connections. While it is off, approved tasks wait in the queue.
 
 The agent runs without asking for permission, because it has to run tests
-and `gh` unattended. Read the instructions before you press Run.
+and `gh` unattended. Read the instructions before you press Boshlash.
 
 ## Server setup
 
