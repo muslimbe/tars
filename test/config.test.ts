@@ -66,6 +66,12 @@ describe('config', () => {
     expect(() => load({ TARS_AGENT_TOKEN: 'short' })).toThrow('TARS_AGENT_TOKEN must be at least 32 characters');
   });
 
+  it('sends agent approvals to the main account unless another owner account is named', () => {
+    expect(load()).toMatchObject({ agentApproverId: 42 });
+    expect(load({ TARS_OWNER_ALT_IDS: '7580081248', TARS_AGENT_APPROVER_ID: '7580081248' })).toMatchObject({ agentApproverId: 7580081248 });
+    expect(() => load({ TARS_AGENT_APPROVER_ID: '99' })).toThrow('TARS_AGENT_APPROVER_ID must be TARS_OWNER_ID or one of TARS_OWNER_ALT_IDS');
+  });
+
   it('derives data paths from TARS_DATA_DIR and operator files from the repo root', () => {
     const config = load({ TARS_DATA_DIR: 'var/data', TARS_ACCESS_PATH: 'conf/access.json' });
     expect(config.dataDir).toBe('/srv/app/var/data');

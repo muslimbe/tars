@@ -103,6 +103,7 @@ Read once at boot (a variable already set in the environment wins over the file)
 | `TARS_BROWSER_HEADLESS` | `true` | `false` shows the browser window, for local debugging. |
 | `TARS_AGENT_TOKEN` | — | Turns on coding tasks for the agent on your computer ([agent.md](agent.md)). At least 32 characters, e.g. `openssl rand -hex 32`. |
 | `TARS_AGENT_PORT` | `8787` | Where the agent server listens inside the container. |
+| `TARS_AGENT_APPROVER_ID` | `TARS_OWNER_ID` | Which owner account gets the Run / Cancel messages, e.g. a work account. Any owner account can press them. |
 | `TARS_SELF_REFLECTION_ENABLED` | `true` | The daily self-reflection loop; `false` cancels it at the next boot. |
 | `TARS_SELF_REFLECTION_CRON` | `0 0 * * *` | When it runs (UTC). |
 | `TARS_LIVENESS_TIMEOUT_SECONDS` | `600` | A turn silent this long (no output, no tool activity) is killed and Claude restarted. |
