@@ -118,6 +118,14 @@ The name must match the directory: lowercase `a-z0-9` and single hyphens. `skill
 | `reminder_list` | A chat's pending reminders. |
 | `reminder_cancel` | Cancel a reminder by id. Seeded reminders are refused. |
 
+### Coding agent
+
+Only with `TARS_AGENT_TOKEN` set ([agent.md](agent.md)).
+
+| Tool | What it does |
+|---|---|
+| `agent_task_create` | Queue a coding task for the Claude agent on the owner's computer. It runs only after an owner presses Run on the approval message; the report comes back as `<agent_result>`. |
+
 ### Data and introspection
 
 | Tool | What it does |

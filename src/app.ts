@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import type { Bot, Transformer } from 'grammy';
 import type { UserFromGetMe } from 'grammy/types';
 
+import { AgentApproval, APPROVAL_BUTTON } from './agents/approval.ts';
+import { AgentServer } from './agents/server.ts';
+import { resultEnvelope } from './agents/tasks.ts';
 import { BrowserManager } from './browser/manager.ts';
 import { BrowserSession } from './browser/session.ts';
 import { buildArgv } from './claude/argv.ts';
@@ -77,6 +80,9 @@ interface Running {
   worker: ClaudeWorker;
   engine: Engine;
   reminders: ReminderLoop;
+  /** Set when `TARS_AGENT_TOKEN` is. */
+  approval: AgentApproval | undefined;
+  agentServer: AgentServer | undefined;
 }
 
 /**
@@ -116,13 +122,15 @@ export class App {
     const browserLog = this.log.child('browser');
     r.browser = new BrowserManager({ headless: this.config.browserHeadless, log: browserLog });
     r.browserSession = new BrowserSession({ manager: r.browser, log: browserLog });
-    r.mcp = await this.startMcp(r.db, r.bot, r.plugins, { ...r.stores, browser: r.browser, browserSession: r.browserSession });
+    r.approval = this.config.agentToken ? new AgentApproval({ api: r.bot.api, db: r.db, ...this.config, log: this.log.child('agents') }) : undefined;
+    r.mcp = await this.startMcp(r.db, r.bot, r.plugins, { ...r.stores, browser: r.browser, browserSession: r.browserSession, approval: r.approval });
     // Warm Chromium in the background; a failure is logged and the first use retries.
     void r.browser.warm();
     r.worker = await this.startWorker(r.plugins, r.mcp, r.stores);
     r.engine = await this.startEngine(r.db, r.bot, r.worker);
     r.reminders = new ReminderLoop({ db: r.db, engine: r.engine, log: this.log.child('reminder') });
     r.reminders.start();
+    r.agentServer = await this.startAgentServer(r.db, r.engine);
     this.attachOwnerAlerts(r.bot, r.engine);
     await this.startDispatcher(r.db, r.bot, r.engine);
     this.log.info('tars is live');
@@ -156,9 +164,10 @@ export class App {
 
   /** Tear down in reverse order of `start()`; a failing step is logged and the rest still run. */
   async stop(): Promise<void> {
-    const { bot, engine, worker, mcp, browserSession, browser, db, reminders } = this.running;
+    const { bot, engine, worker, mcp, browserSession, browser, db, reminders, agentServer } = this.running;
     const steps = [
       () => this.ownerAlerts?.flush(),
+      () => agentServer?.stop(),
       () => reminders?.stop(),
       () => bot?.isRunning() && bot.stop(),
       () => engine?.stop(),
@@ -205,13 +214,15 @@ export class App {
     };
   }
 
-  private async startMcp(db: Db, bot: Bot, plugins: Plugins, services: Stores & Pick<Running, 'browser' | 'browserSession'>): Promise<McpHttpServer> {
+  private async startMcp(db: Db, bot: Bot, plugins: Plugins, services: Stores & Pick<Running, 'browser' | 'browserSession' | 'approval'>): Promise<McpHttpServer> {
+    const { approval, ...stores } = services;
     const toolCtx = {
       api: bot.api,
       me: () => bot.botInfo,
       db,
       dbPath: this.config.dbPath,
-      ...services,
+      ...stores,
+      agents: approval && { db, approval },
       chatTitles: this.chatTitles,
       transcript: this.transcript,
       log: this.log.child('tools'),
@@ -267,12 +278,26 @@ export class App {
     return engine;
   }
 
+  /** A finished task reaches the model like a fired reminder: a synthetic message (id 0) in the chat it was asked in. */
+  private async startAgentServer(db: Db, engine: Engine): Promise<AgentServer | undefined> {
+    const { agentToken: token, agentPort: port, ownerId } = this.config;
+    if (!token) return undefined;
+    const onFinished = (task: Parameters<typeof resultEnvelope>[0]) =>
+      engine.submit({ chatId: task.chat_id, messageId: 0, userId: ownerId, direction: 'in', timestamp: new Date(), text: resultEnvelope(task) });
+    const server = new AgentServer({ db, token, port, log: this.log.child('agents'), onFinished });
+    await server.start();
+    return server;
+  }
+
   private async startDispatcher(db: Db, bot: Bot, engine: Engine): Promise<void> {
     const c = this.config;
     const log = this.log.child('telegram');
     // The commands pause and resume the dispatcher that routes them to them.
     let commands: CommandHandler = () => Promise.resolve(false);
     const download = this.o.download ?? downloadFile;
+    // Before the dispatcher's catch-all: approval buttons never reach the access buttons.
+    const approval = this.running.approval;
+    if (approval) bot.callbackQuery(APPROVAL_BUTTON, (ctx) => approval.pressed(ctx));
     const attachments = attachmentIngest({ api: bot.api, download, dir: c.attachmentsDir, maxBytes: c.attachmentMaxBytes, log });
     const dispatcher = new Dispatcher({
       bot, config: c, db, engine, chatTitles: this.chatTitles, transcript: this.transcript, log, attachments,

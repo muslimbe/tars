@@ -38,10 +38,12 @@ src/
 ├── stores/           # path-hardened files: memory, skills, instructions, attachments, renders
 ├── db/               # SQLite: migrations, queries, the read-only query worker
 ├── scheduler/        # reminder loop, cron, boot-time seeding
+├── agents/           # coding tasks for the agent on the owner's computer: approval buttons, the HTTP server it polls
 ├── browser/          # warm Chromium, the browsing session, the SSRF guard, HTML → PNG
 ├── log/              # logger, sinks, owner DMs, the [RX]/[TX]/[CC.*] transcript
 ├── text/             # chunking, Markdown → Telegram HTML, normalising, scrubbing, frontmatter
 └── scripts/trace.ts  # npm run trace
+agent/                # tars-agent.ps1, the agent's poller for the owner's Windows computer
 prompts/              # system.md (shipped), project.md (the instance's), subagents.md
 skills/               # the built-in playbooks
 test/                 # vitest, mirroring src/; fakes/ has a fake claude and a fake Telegram, golden/ the pinned model-visible output
