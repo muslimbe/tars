@@ -10,8 +10,8 @@ export const APPROVAL_BUTTON = /^agent (run|cancel) (\d+)$/;
 export interface AgentApprovalOptions {
   api: Api;
   db: Db;
-  /** The owner's main account gets the approval messages; any owner account may press. */
-  ownerId: number;
+  /** The owner account that gets the approval messages; any owner account may press. */
+  agentApproverId: number;
   ownerIds: readonly number[];
   log: Logger;
 }
@@ -31,7 +31,7 @@ export class AgentApproval {
   /** Show the owner the whole task with Run / Cancel buttons. */
   async propose(task: AgentTaskRow): Promise<void> {
     const buttons = [[{ text: '▶️ Run', callback_data: `agent run ${task.id}` }, { text: '✖️ Cancel', callback_data: `agent cancel ${task.id}` }]];
-    await this.o.api.sendMessage(this.o.ownerId, approvalText(task), { reply_markup: { inline_keyboard: buttons } });
+    await this.o.api.sendMessage(this.o.agentApproverId, approvalText(task), { reply_markup: { inline_keyboard: buttons } });
   }
 
   /** A Run / Cancel button was pressed. */

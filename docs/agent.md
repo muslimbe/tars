@@ -8,7 +8,8 @@ computer does the work and opens a pull request. The work runs on the
 
 1. You write to the bot: "do BIL-123 in billing". It reads the issue and
    writes instructions for the agent (`agent_task_create`).
-2. You get the full instructions with **Run** and **Cancel** buttons.
+2. You get the full instructions with **Run** and **Cancel** buttons, on
+   the main account or on `TARS_AGENT_APPROVER_ID`.
    Nothing runs until an owner account presses Run. This check is in code,
    not in the prompt, so nobody can talk the bot into running something on
    your computer.

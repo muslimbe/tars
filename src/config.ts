@@ -58,6 +58,8 @@ export interface Config {
   agentToken: string | undefined;
   /** Where the agent server listens. */
   agentPort: number;
+  /** The owner account that gets agent approval messages: `TARS_AGENT_APPROVER_ID`, else `ownerId`. */
+  agentApproverId: number;
 }
 
 // An empty variable counts as unset.
@@ -170,6 +172,7 @@ const ENV = z.object({
   TARS_MEMORIES_DIR: optional,
   TARS_AGENT_TOKEN: secret('TARS_AGENT_TOKEN'),
   TARS_AGENT_PORT: int('TARS_AGENT_PORT', 8787),
+  TARS_AGENT_APPROVER_ID: int('TARS_AGENT_APPROVER_ID', 0),
 });
 
 /**
@@ -181,10 +184,13 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>, cw
   const parsed = ENV.safeParse(env);
   if (!parsed.success) throw new Error(parsed.error.issues.map((issue) => issue.message).join('\n'));
   const e = parsed.data;
+  const ownerIds = [e.TARS_OWNER_ID, ...e.TARS_OWNER_ALT_IDS];
+  const agentApproverId = e.TARS_AGENT_APPROVER_ID || e.TARS_OWNER_ID;
+  if (!ownerIds.includes(agentApproverId)) throw new Error('TARS_AGENT_APPROVER_ID must be TARS_OWNER_ID or one of TARS_OWNER_ALT_IDS');
   return Object.freeze({
     telegramBotToken: e.TELEGRAM_BOT_TOKEN,
     ownerId: e.TARS_OWNER_ID,
-    ownerIds: [e.TARS_OWNER_ID, ...e.TARS_OWNER_ALT_IDS],
+    ownerIds,
     model: e.TARS_MODEL,
     effort: e.TARS_EFFORT,
     claudeCodeBin: e.CLAUDE_CODE_BIN,
@@ -208,6 +214,7 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>, cw
     logTranscript: e.TARS_LOG_TRANSCRIPT,
     agentToken: e.TARS_AGENT_TOKEN,
     agentPort: e.TARS_AGENT_PORT,
+    agentApproverId,
     ...paths(e, cwd),
   });
 }
