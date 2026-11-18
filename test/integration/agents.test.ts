@@ -84,6 +84,43 @@ describe('agent tasks, end to end', () => {
     expect((await t.post('/agent/claim')).status).toBe(204);
   });
 
+  it('a follow-up resumes the finished session without a button, and the owner sees it', async () => {
+    const t = await started();
+    t.telegram.message({ id: OWNER.id }, OWNER, CREATE);
+    await t.telegram.waitFor('sendMessage', (p) => String(p.text).startsWith('🤖 Agent task #1'), 15_000);
+    t.press(OWNER, 'agent run 1');
+    await t.telegram.waitFor('editMessageText');
+    await t.post('/agent/claim');
+    const session = { session_id: '71a8c4bf-677a-4e36-b9b4-f5c5d4f48d32', worktree: 'D:\\projects\\.lia-worktrees\\billing-1', resume: 'claude --resume 71a8c4bf' };
+    await t.post('/agent/tasks/1/result', { ok: true, summary: 'Which rounding for negatives?', ...session });
+    await until(() => t.claudeLog().some((e) => e.kind === 'stdin' && e.line?.includes('agent_result')));
+
+    t.telegram.message({ id: OWNER.id }, OWNER, '#fake tool agent_task_continue {"task_id": 1, "message": "Half away from zero."}');
+    const notice = await t.telegram.waitFor('sendMessage', (p) => String(p.text).startsWith('↪️'), 15_000);
+    expect(notice.payload).toMatchObject({ chat_id: OWNER.id, text: '↪️ Agent follow-up #2 on task #1 — billing\n\nHalf away from zero.' });
+    expect(notice.payload.reply_markup).toBeUndefined();
+    const follow = (await (await t.post('/agent/claim')).json()) as Record<string, string | number>;
+    expect(follow).toMatchObject({ id: 2, repo: 'billing', session_id: session.session_id, worktree: session.worktree });
+    expect(follow.prompt).toContain('Half away from zero.');
+
+    await t.post('/agent/tasks/2/result', { ok: true, summary: 'Done.', ...session });
+    const stdin = await until(() => t.claudeLog().find((e) => e.kind === 'stdin' && e.line?.includes('continues=')));
+    expect(stdin.line).toContain('<agent_result task=\\"2\\" continues=\\"1\\"');
+    expect(stdin.line).toContain('resume=\\"claude --resume 71a8c4bf\\"');
+  });
+
+  it('will not continue a task that has not finished', async () => {
+    const t = await started();
+    t.telegram.message({ id: OWNER.id }, OWNER, CREATE);
+    await t.telegram.waitFor('sendMessage', (p) => String(p.text).startsWith('🤖 Agent task #1'), 15_000);
+    t.telegram.message({ id: OWNER.id }, OWNER, '#fake tool agent_task_continue {"task_id": 1, "message": "go on"}');
+    const call = await until(() => t.claudeLog().find((e) => e.kind === 'tool' && e.name === 'agent_task_continue') as { isError?: boolean; content?: unknown } | undefined);
+    expect(call.isError).toBe(true);
+    expect(JSON.stringify(call.content)).toContain('agent task #1 is awaiting; only a finished task can be continued');
+    expect(t.telegram.sent().some((c) => String(c.payload.text).startsWith('↪️'))).toBe(false);
+    expect((await t.post('/agent/claim')).status).toBe(204);
+  });
+
   it('turns away a wrong token and a malformed report', async () => {
     const t = await started();
     expect((await t.post('/agent/claim', {}, 'wrong')).status).toBe(401);

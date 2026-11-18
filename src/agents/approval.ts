@@ -34,6 +34,11 @@ export class AgentApproval {
     await this.o.api.sendMessage(this.o.agentApproverId, approvalText(task), { reply_markup: { inline_keyboard: buttons } });
   }
 
+  /** A follow-up needs no button, but the owner still sees what the agent was told. */
+  async announce(task: AgentTaskRow): Promise<void> {
+    await this.o.api.sendMessage(this.o.agentApproverId, `↪️ Agent follow-up #${task.id} on task #${task.parent_id} — ${task.repo}\n\n${task.prompt}`);
+  }
+
   /** A Run / Cancel button was pressed. */
   async pressed(ctx: Context): Promise<void> {
     const query = ctx.callbackQuery;

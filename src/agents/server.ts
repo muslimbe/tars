@@ -15,7 +15,14 @@ const MAX_BODY_BYTES = 1_000_000;
 /** The report goes into the model's input whole; a runaway one is cut. */
 const MAX_REPORT_CHARS = 8000;
 
-const RESULT = z.object({ ok: z.boolean(), summary: z.string() });
+const RESULT = z.object({
+  ok: z.boolean(),
+  summary: z.string(),
+  // Where the session can be continued; absent when the task failed before claude ran.
+  session_id: z.string().regex(/^[0-9a-f-]{36}$/).optional(),
+  worktree: z.string().max(500).optional(),
+  resume: z.string().max(1000).optional(),
+});
 
 export interface AgentServerOptions {
   db: Db;
@@ -84,14 +91,15 @@ export class AgentServer {
     const task = claimAgentTask(this.o.db);
     if (!task) return [204];
     this.o.log.info(`agent task #${task.id} claimed`);
-    return [200, { id: task.id, repo: task.repo, title: task.title, prompt: agentPrompt(task) }];
+    const session = task.parent_id === null ? {} : { session_id: task.session_id, worktree: task.worktree };
+    return [200, { id: task.id, repo: task.repo, title: task.title, prompt: agentPrompt(task), ...session }];
   }
 
   private finish(id: number, body: string | undefined): [number, unknown?] {
     const parsed = body === undefined ? undefined : RESULT.safeParse(safeJson(body));
-    if (!parsed?.success) return [400, { error: 'expected {"ok": boolean, "summary": string}' }];
-    const { ok, summary } = parsed.data;
-    const task = finishAgentTask(this.o.db, id, { ok, result: clip(summary, MAX_REPORT_CHARS), prUrl: prUrlOf(summary) });
+    if (!parsed?.success) return [400, { error: 'expected {"ok": boolean, "summary": string, "session_id"?, "worktree"?, "resume"?}' }];
+    const { ok, summary, session_id: sessionId, worktree, resume } = parsed.data;
+    const task = finishAgentTask(this.o.db, id, { ok, result: clip(summary, MAX_REPORT_CHARS), prUrl: prUrlOf(summary), sessionId, worktree, resume });
     if (!task) return [409, { error: `task #${id} is not running` }];
     this.o.log.info(`agent task #${id} ${task.status}`);
     this.o.onFinished(task).catch((err: unknown) => this.o.log.error(`reporting agent task #${id} failed`, { err }));
