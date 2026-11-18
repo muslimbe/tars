@@ -39,12 +39,17 @@ and `gh` unattended. Read the instructions before you press Run.
          - "127.0.0.1:8787:8787"
    ```
 
-3. Put HTTPS in front of it, for example with Caddy:
+3. Put HTTPS in front of it, for example with Caddy. Use `handle` blocks:
+   Caddy runs `respond` before `reverse_proxy` whatever the order in the file.
 
    ```
    lia.example.com {
-       reverse_proxy /agent/* localhost:8787
-       respond 404
+       handle /agent/* {
+           reverse_proxy localhost:8787
+       }
+       handle {
+           respond 404
+       }
    }
    ```
 
