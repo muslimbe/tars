@@ -54,6 +54,10 @@ export interface Config {
   skillsDir: string;
   /** Claude Code's working directory, so the `read` tool group reaches only this folder. */
   projectsDir: string;
+  /** The secret the agent on the owner's computer authenticates with; unset turns the feature off. */
+  agentToken: string | undefined;
+  /** Where the agent server listens. */
+  agentPort: number;
 }
 
 // An empty variable counts as unset.
@@ -121,6 +125,10 @@ const groupMessages = text('all').transform((raw, ctx) => {
   return z.NEVER;
 });
 
+/** Long enough that guessing it over the internet is hopeless. */
+const secret = (name: string) =>
+  optional.refine((raw) => raw === undefined || raw.length >= 32, `${name} must be at least 32 characters`);
+
 const userIds = (name: string) =>
   optional.transform((raw, ctx) => {
     const ids = (raw ?? '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -160,6 +168,8 @@ const ENV = z.object({
   TARS_REMINDERS_PATH: optional,
   TARS_PLUGINS_PATH: optional,
   TARS_MEMORIES_DIR: optional,
+  TARS_AGENT_TOKEN: secret('TARS_AGENT_TOKEN'),
+  TARS_AGENT_PORT: int('TARS_AGENT_PORT', 8787),
 });
 
 /**
@@ -196,6 +206,8 @@ export function loadConfig(env: Readonly<Record<string, string | undefined>>, cw
     browserHeadless: e.TARS_BROWSER_HEADLESS,
     logLevel: e.TARS_LOG_LEVEL,
     logTranscript: e.TARS_LOG_TRANSCRIPT,
+    agentToken: e.TARS_AGENT_TOKEN,
+    agentPort: e.TARS_AGENT_PORT,
     ...paths(e, cwd),
   });
 }

@@ -1,6 +1,7 @@
 import type { Api } from 'grammy';
 import type { UserFromGetMe } from 'grammy/types';
 
+import type { AgentTaskDeps } from './agents.ts';
 import type { BrowserManager } from '../browser/manager.ts';
 import type { BrowserSession } from '../browser/session.ts';
 import type { Db } from '../db/database.ts';
@@ -35,4 +36,6 @@ export interface ToolContext {
   log: Logger;
   /** A chat got its reply: the engine stops that chat's typing indicator. */
   onChatReplied(chatId: number): void;
+  /** Set when the agent on the owner's computer is configured (`TARS_AGENT_TOKEN`). */
+  agents?: AgentTaskDeps | undefined;
 }

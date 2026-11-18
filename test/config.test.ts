@@ -60,6 +60,12 @@ describe('config', () => {
     expect(() => load({ TARS_OWNER_ALT_IDS: '@work' })).toThrow('TARS_OWNER_ALT_IDS must be comma-separated user ids, got "@work"');
   });
 
+  it('turns the agent server on only with a long enough token', () => {
+    expect(load()).toMatchObject({ agentToken: undefined, agentPort: 8787 });
+    expect(load({ TARS_AGENT_TOKEN: 'x'.repeat(32), TARS_AGENT_PORT: '9000' })).toMatchObject({ agentToken: 'x'.repeat(32), agentPort: 9000 });
+    expect(() => load({ TARS_AGENT_TOKEN: 'short' })).toThrow('TARS_AGENT_TOKEN must be at least 32 characters');
+  });
+
   it('derives data paths from TARS_DATA_DIR and operator files from the repo root', () => {
     const config = load({ TARS_DATA_DIR: 'var/data', TARS_ACCESS_PATH: 'conf/access.json' });
     expect(config.dataDir).toBe('/srv/app/var/data');
