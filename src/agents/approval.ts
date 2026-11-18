@@ -30,13 +30,13 @@ export class AgentApproval {
 
   /** Show the owner the whole task with Run / Cancel buttons. */
   async propose(task: AgentTaskRow): Promise<void> {
-    const buttons = [[{ text: '▶️ Run', callback_data: `agent run ${task.id}` }, { text: '✖️ Cancel', callback_data: `agent cancel ${task.id}` }]];
+    const buttons = [[{ text: '▶️ Boshlash', callback_data: `agent run ${task.id}` }, { text: '✖️ Bekor qilish', callback_data: `agent cancel ${task.id}` }]];
     await this.o.api.sendMessage(this.o.agentApproverId, approvalText(task), { reply_markup: { inline_keyboard: buttons } });
   }
 
   /** A follow-up needs no button, but the owner still sees what the agent was told. */
   async announce(task: AgentTaskRow): Promise<void> {
-    await this.o.api.sendMessage(this.o.agentApproverId, `↪️ Agent follow-up #${task.id} on task #${task.parent_id} — ${task.repo}\n\n${task.prompt}`);
+    await this.o.api.sendMessage(this.o.agentApproverId, `↪️ Agent davomi #${task.id} (vazifa #${task.parent_id}) — ${task.repo}\n\n${task.prompt}`);
   }
 
   /** A Run / Cancel button was pressed. */
@@ -52,15 +52,15 @@ export class AgentApproval {
 
   private decide(data: string, from: number): string {
     const [, action, id] = APPROVAL_BUTTON.exec(data) ?? [];
-    if (!id) return 'Unknown button.';
+    if (!id) return 'Nomaʼlum tugma.';
     const run = action === 'run';
-    if (!decideAgentTask(this.o.db, Number(id), run)) return 'Already decided.';
+    if (!decideAgentTask(this.o.db, Number(id), run)) return 'Bu vazifa allaqachon hal qilingan.';
     this.o.log.info(`agent task #${id} ${run ? 'approved' : 'cancelled'} by ${from}`);
-    return run ? '▶️ Approved — the agent on your computer will pick it up.' : '✖️ Cancelled.';
+    return run ? '▶️ Tasdiqlandi — kompyuteringizdagi agent uni bir daqiqa ichida oladi.' : '✖️ Bekor qilindi.';
   }
 }
 
 function approvalText(t: AgentTaskRow): string {
   const jira = t.jira_key ? `Jira: ${t.jira_key}\n` : '';
-  return `🤖 Agent task #${t.id} — ${t.repo}\n${jira}${t.title}\n\n${t.prompt}`;
+  return `🤖 Agent vazifasi #${t.id} — ${t.repo}\n${jira}${t.title}\n\n${t.prompt}`;
 }
