@@ -13,6 +13,13 @@ export interface AgentTaskRow {
   pr_url: string | null;
   created_at: string;
   finished_at: string | null;
+  /** A follow-up: the task whose session it continues. */
+  parent_id: number | null;
+  /** The agent's Claude session: copied from the parent for a follow-up, reported when the task finishes. */
+  session_id: string | null;
+  worktree: string | null;
+  /** A command that opens the session on the owner's computer. */
+  resume: string | null;
 }
 
 export interface NewAgentTask {
@@ -28,6 +35,20 @@ export function insertAgentTask(db: Db, t: NewAgentTask): AgentTaskRow {
   return db
     .prepare('INSERT INTO agent_tasks (chat_id, repo, jira_key, title, prompt, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *')
     .get(t.chatId, t.repo, t.jiraKey ?? null, t.title, t.prompt, sqliteTime(new Date())) as AgentTaskRow;
+}
+
+export function fetchAgentTask(db: Db, id: number): AgentTaskRow | undefined {
+  return db.prepare('SELECT * FROM agent_tasks WHERE id = ?').get(id) as AgentTaskRow | undefined;
+}
+
+/** A follow-up message for a finished task's session: approved at once, since the owner approved the conversation. */
+export function insertFollowUp(db: Db, parent: AgentTaskRow, prompt: string): AgentTaskRow {
+  return db
+    .prepare(
+      `INSERT INTO agent_tasks (chat_id, repo, jira_key, title, prompt, status, pr_url, created_at, parent_id, session_id, worktree, resume)
+       VALUES (?, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, ?, ?) RETURNING *`,
+    )
+    .get(parent.chat_id, parent.repo, parent.jira_key, parent.title, prompt, parent.pr_url, sqliteTime(new Date()), parent.id, parent.session_id, parent.worktree, parent.resume) as AgentTaskRow;
 }
 
 /** The owner's answer: awaiting → approved or cancelled. False when the task was already decided. */
@@ -49,12 +70,20 @@ export function claimAgentTask(db: Db): AgentTaskRow | undefined {
 export interface AgentTaskOutcome {
   ok: boolean;
   result: string;
+  /** Each kept when the report leaves it out (a follow-up's PR is its parent's). */
   prUrl: string | undefined;
+  sessionId: string | undefined;
+  worktree: string | undefined;
+  resume: string | undefined;
 }
 
 /** running → done or failed. Returns the finished row, or undefined when the task isn't running. */
 export function finishAgentTask(db: Db, id: number, o: AgentTaskOutcome): AgentTaskRow | undefined {
   return db
-    .prepare("UPDATE agent_tasks SET status = ?, result = ?, pr_url = ?, finished_at = ? WHERE id = ? AND status = 'running' RETURNING *")
-    .get(o.ok ? 'done' : 'failed', o.result, o.prUrl ?? null, sqliteTime(new Date()), id) as AgentTaskRow | undefined;
+    .prepare(
+      `UPDATE agent_tasks SET status = ?, result = ?, finished_at = ?, pr_url = COALESCE(?, pr_url),
+         session_id = COALESCE(?, session_id), worktree = COALESCE(?, worktree), resume = COALESCE(?, resume)
+       WHERE id = ? AND status = 'running' RETURNING *`,
+    )
+    .get(o.ok ? 'done' : 'failed', o.result, sqliteTime(new Date()), o.prUrl ?? null, o.sessionId ?? null, o.worktree ?? null, o.resume ?? null, id) as AgentTaskRow | undefined;
 }

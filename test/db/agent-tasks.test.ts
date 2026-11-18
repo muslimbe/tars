@@ -2,10 +2,12 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { claimAgentTask, decideAgentTask, finishAgentTask, insertAgentTask } from '../../src/db/agent-tasks.ts';
+import { type AgentTaskOutcome, claimAgentTask, decideAgentTask, fetchAgentTask, finishAgentTask, insertAgentTask, insertFollowUp } from '../../src/db/agent-tasks.ts';
 import { openDatabase } from '../../src/db/database.ts';
 import { memoryLogger } from '../helpers/log.ts';
 import { tempDir } from '../helpers/tmp.ts';
+
+const outcome = (o: Partial<AgentTaskOutcome>): AgentTaskOutcome => ({ ok: true, result: 'r', prUrl: undefined, sessionId: undefined, worktree: undefined, resume: undefined, ...o });
 
 function setup() {
   const db = openDatabase(join(tempDir(), 'a.db'), memoryLogger());
@@ -42,10 +44,24 @@ describe('agent_tasks table', () => {
   it('closes only a running task', () => {
     const { db, insert } = setup();
     const { id } = insert();
-    expect(finishAgentTask(db, id, { ok: true, result: 'r', prUrl: undefined })).toBeUndefined();
+    expect(finishAgentTask(db, id, outcome({}))).toBeUndefined();
     decideAgentTask(db, id, true);
     claimAgentTask(db);
-    expect(finishAgentTask(db, id, { ok: false, result: 'tests fail', prUrl: undefined })).toMatchObject({ status: 'failed', result: 'tests fail', pr_url: null });
-    expect(finishAgentTask(db, id, { ok: true, result: 'again', prUrl: undefined })).toBeUndefined();
+    expect(finishAgentTask(db, id, outcome({ ok: false, result: 'tests fail' }))).toMatchObject({ status: 'failed', result: 'tests fail', pr_url: null });
+    expect(finishAgentTask(db, id, outcome({ result: 'again' }))).toBeUndefined();
+  });
+
+  it('a follow-up is approved at once, resumes the parent session, and keeps what its report leaves out', () => {
+    const { db, insert } = setup();
+    const { id } = insert();
+    decideAgentTask(db, id, true);
+    claimAgentTask(db);
+    const parent = finishAgentTask(db, id, outcome({ prUrl: 'https://pr/1', sessionId: 's-1', worktree: 'D:\\w', resume: 'go' }));
+    if (!parent) throw new Error('parent did not finish');
+    const follow = insertFollowUp(db, parent, 'more');
+    expect(follow).toMatchObject({ parent_id: id, status: 'approved', prompt: 'more', session_id: 's-1', worktree: 'D:\\w', pr_url: 'https://pr/1' });
+    expect(claimAgentTask(db)).toMatchObject({ id: follow.id, status: 'running' });
+    finishAgentTask(db, follow.id, outcome({ result: 'did more' }));
+    expect(fetchAgentTask(db, follow.id)).toMatchObject({ status: 'done', result: 'did more', pr_url: 'https://pr/1', session_id: 's-1', resume: 'go' });
   });
 });

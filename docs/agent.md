@@ -19,6 +19,13 @@ computer does the work and opens a pull request. The work runs on the
    The agent branches from the upstream default branch, commits, pushes to
    your fork and opens a PR to upstream.
 4. The agent's report and the PR link come back, and the bot tells you.
+   It also gives you a command that opens the agent's Claude session on your
+   computer, so you can read everything it did.
+5. To go on, tell the bot: "fix the review comments on BIL-123", or answer
+   the agent's question. The bot resumes the same session in the same
+   worktree (`agent_task_continue`), and the agent pushes to the same PR.
+   Follow-ups need no button, since you approved the task already; you
+   still get each follow-up's text.
 
 Your computer only makes outbound HTTPS calls. Nothing on it listens for
 connections. While it is off, approved tasks wait in the queue.
@@ -78,5 +85,7 @@ schtasks /Create /TN "tars agent" /SC ONLOGON /TR "powershell -NoProfile -Execut
 - Tasks are in the `agent_tasks` table: `awaiting` (no button yet),
   `approved`, `running`, `done`, `failed`, `cancelled`.
 - A task stays `running` if the script is stopped in the middle of it.
-- A failed task keeps its worktree in `D:\projects\.lia-worktrees\` so you
-  can look at it.
+- Worktrees stay in `D:\projects\.lia-worktrees\`, one per task, so a
+  session can be continued. Remove the ones you're done with, from the repo:
+  `git worktree remove D:\projects\.lia-worktrees\billing-5`. While a
+  worktree exists, its branch can't be checked out elsewhere.

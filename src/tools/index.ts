@@ -6,7 +6,7 @@ import { clickTool, fillTool, pressKeyTool, scrollTool, selectOptionTool } from 
 import { downloadTool, screenshotTool } from './browser/files.ts';
 import { backTool, navigateTool, reloadTool, resetTool } from './browser/navigation.ts';
 import { getAttributeTool, getHtmlTool, getTextTool, listTool, waitForTool } from './browser/reading.ts';
-import { agentTaskCreateTool } from './agents.ts';
+import { agentTaskContinueTool, agentTaskCreateTool } from './agents.ts';
 import type { ToolContext } from './context.ts';
 import { databaseQueryTool, recentMessagesTool } from './database.ts';
 import { instructionAppendTool, instructionReadTool, instructionRewriteTool } from './instructions.ts';
@@ -50,7 +50,7 @@ export function buildTools(ctx: ToolContext, disabled: ReadonlySet<string>, log:
 }
 
 function allTools(ctx: ToolContext, enabled: () => readonly Tool[]): Tool[] {
-  const agents = ctx.agents ? [agentTaskCreateTool(ctx.agents)] : [];
+  const agents = ctx.agents ? [agentTaskCreateTool(ctx.agents), agentTaskContinueTool(ctx.agents)] : [];
   return [...browserTools(ctx), ...dataTools(ctx), ...telegramTools(ctx), ...agents, toolListTool(enabled)];
 }
 

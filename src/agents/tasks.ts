@@ -4,8 +4,13 @@ import { escapeAttr, escapeXml } from '../text/xml.ts';
 /** The branch the agent opens its pull request from. */
 export const branchName = (t: Pick<AgentTaskRow, 'id' | 'jira_key'>): string => `lia/${t.jira_key ? `${t.jira_key.toLowerCase()}-` : 'task-'}${t.id}`;
 
+const REPORT =
+  'Finish with a short plain-text report: what you changed, how you checked it, and the pull request link on its own line as `PR: <url>`. ' +
+  'If you could not finish, say exactly what stopped you. If you need a decision from the owner, stop and ask it in the report: this session will be resumed with the answer.';
+
 /** What the agent on the owner's computer runs: Lia's instructions wrapped in how to deliver them. */
 export function agentPrompt(t: AgentTaskRow): string {
+  if (t.parent_id !== null) return followUpPrompt(t);
   const branch = branchName(t);
   const jira = t.jira_key ? ` — Jira ${t.jira_key}` : '';
   return [
@@ -21,7 +26,19 @@ export function agentPrompt(t: AgentTaskRow): string {
     "2. Do the work. Run the project's tests and checks if it has them, and fix what fails.",
     `3. Commit with a clear message${t.jira_key ? ` that starts with ${t.jira_key}` : ''}, and push the branch to origin.`,
     `4. Open a pull request against that upstream base branch with \`gh pr create\` (from a fork: \`--repo <upstream owner>/<repo> --head <fork owner>:${branch}\`). Write its title and description in English${t.jira_key ? ` and mention ${t.jira_key}` : ''}.`,
-    '5. Finish with a short plain-text report: what you changed, how you checked it, and the pull request link on its own line as `PR: <url>`. If you could not finish, say exactly what stopped you.',
+    `5. ${REPORT}`,
+  ].join('\n');
+}
+
+/** A follow-up resumes the session, so it needs only the new message and the delivery rules again. */
+function followUpPrompt(t: AgentTaskRow): string {
+  return [
+    `Follow-up #${t.id} from the owner, through Lia:`,
+    '',
+    t.prompt,
+    '',
+    'Keep working on the same branch. Commit and push to it, so the open pull request updates; open one only if there is none yet.',
+    REPORT,
   ].join('\n');
 }
 
@@ -30,6 +47,16 @@ export const prUrlOf = (report: string): string | undefined => /^PR:\s*(https?:\
 
 /** How a finished task reaches Lia: a synthetic inbound message only tars can produce. */
 export function resultEnvelope(t: AgentTaskRow): string {
-  const pr = t.pr_url ? ` pr="${escapeAttr(t.pr_url)}"` : '';
-  return `<agent_result task="${t.id}" chat_id="${t.chat_id}" repo="${escapeAttr(t.repo)}" status="${t.status}"${pr}>${escapeXml(t.result ?? '')}</agent_result>`;
+  const attrs = [
+    ['continues', t.parent_id],
+    ['chat_id', t.chat_id],
+    ['repo', t.repo],
+    ['status', t.status],
+    ['pr', t.pr_url],
+    ['resume', t.resume],
+  ]
+    .filter(([, value]) => value !== null)
+    .map(([key, value]) => ` ${key}="${escapeAttr(String(value))}"`)
+    .join('');
+  return `<agent_result task="${t.id}"${attrs}>${escapeXml(t.result ?? '')}</agent_result>`;
 }

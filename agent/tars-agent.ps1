@@ -38,21 +38,32 @@ function Post([string]$path, $body) {
     -Body ([Text.Encoding]::UTF8.GetBytes($json)) -TimeoutSec 60 -ErrorAction Stop
 }
 
-# Runs one task; returns @{ ok; summary } for tars.
-function Invoke-Task($task) {
+# Where a task runs: a follow-up in its earlier worktree, a new task in a fresh one. Returns the path, or an error text.
+function Get-Worktree($task) {
+  if ($task.session_id) {
+    if (Test-Path $task.worktree) { return @{ path = $task.worktree } }
+    return @{ error = "The worktree $($task.worktree) of the session to continue is gone." }
+  }
   $repo = Join-Path $ProjectsDir $task.repo
   if (-not (Test-Path (Join-Path $repo '.git'))) {
-    return @{ ok = $false; summary = "There is no git repository at $repo on the owner's computer." }
+    return @{ error = "There is no git repository at $repo on the owner's computer." }
   }
   $worktree = Join-Path $ProjectsDir ".lia-worktrees\$($task.repo)-$($task.id)"
   # Out-Host: git's output must not become part of what this function returns.
   git -C $repo worktree add --detach $worktree | Out-Host
-  if ($LASTEXITCODE -ne 0) {
-    return @{ ok = $false; summary = "git worktree add failed for $worktree (exit code $LASTEXITCODE)." }
-  }
-  Push-Location $worktree
+  if ($LASTEXITCODE -ne 0) { return @{ error = "git worktree add failed for $worktree (exit code $LASTEXITCODE)." } }
+  return @{ path = $worktree }
+}
+
+# Runs one task; returns the report for tars. The worktree stays, so the session can be continued there.
+function Invoke-Task($task) {
+  $where = Get-Worktree $task
+  if ($where.error) { return @{ ok = $false; summary = $where.error } }
+  $claudeArgs = @('-p', '--output-format', 'json', '--permission-mode', 'bypassPermissions')
+  if ($task.session_id) { $claudeArgs += @('--resume', $task.session_id) }
+  Push-Location $where.path
   try {
-    $output = $task.prompt | & claude -p --output-format json --permission-mode bypassPermissions
+    $output = $task.prompt | & claude @claudeArgs
   } finally {
     Pop-Location
   }
@@ -62,11 +73,14 @@ function Invoke-Task($task) {
   } catch {
     return @{ ok = $false; summary = "claude did not finish normally. Its output:`n$text" }
   }
-  if (-not $result.is_error) {
-    # The branch is pushed by now; a worktree with leftovers stays for a look (remove refuses those).
-    git -C $repo worktree remove $worktree | Out-Host
+  $report = @{ ok = -not $result.is_error; summary = [string]$result.result }
+  if ($result.session_id) {
+    $quoted = $where.path -replace "'", "''"
+    $report.session_id = [string]$result.session_id
+    $report.worktree = $where.path
+    $report.resume = "cd '$quoted'; Remove-Item Env:ANTHROPIC_API_KEY -ErrorAction SilentlyContinue; claude --resume $($result.session_id)"
   }
-  return @{ ok = -not $result.is_error; summary = [string]$result.result }
+  return $report
 }
 
 Log "polling $Server every $PollSeconds s; projects in $ProjectsDir (Ctrl+C to stop)"
