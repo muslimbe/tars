@@ -28,6 +28,11 @@ computer does the work and opens a pull request. The work runs on the
    Follow-ups need no button, since you approved the task already; you
    still get each follow-up's text.
 
+To pick the Claude model, name it: "do BIL-123 in billing with opus". The
+approval message shows `Model: opus`, and the agent runs `claude --model opus`.
+Without a name it uses the default of the `claude` login on your computer. A
+follow-up keeps the task's model unless you name another one.
+
 Your computer only makes outbound HTTPS calls. Nothing on it listens for
 connections. While it is off, approved tasks wait in the queue.
 

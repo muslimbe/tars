@@ -11,14 +11,14 @@ const outcome = (o: Partial<AgentTaskOutcome>): AgentTaskOutcome => ({ ok: true,
 
 function setup() {
   const db = openDatabase(join(tempDir(), 'a.db'), memoryLogger());
-  const insert = (title = 'Fix') => insertAgentTask(db, { chatId: 1, repo: 'billing', jiraKey: undefined, title, prompt: 'do it' });
+  const insert = (title = 'Fix', model?: string) => insertAgentTask(db, { chatId: 1, repo: 'billing', jiraKey: undefined, title, prompt: 'do it', model });
   return { db, insert };
 }
 
 describe('agent_tasks table', () => {
   it('a new task waits for the owner', () => {
     const { insert } = setup();
-    expect(insert()).toMatchObject({ id: 1, chat_id: 1, repo: 'billing', jira_key: null, status: 'awaiting', result: null });
+    expect(insert()).toMatchObject({ id: 1, chat_id: 1, repo: 'billing', jira_key: null, status: 'awaiting', result: null, model: null });
   });
 
   it('is decided once: run or cancel, never both', () => {
@@ -53,15 +53,16 @@ describe('agent_tasks table', () => {
 
   it('a follow-up is approved at once, resumes the parent session, and keeps what its report leaves out', () => {
     const { db, insert } = setup();
-    const { id } = insert();
+    const { id } = insert('Fix', 'opus');
     decideAgentTask(db, id, true);
     claimAgentTask(db);
     const parent = finishAgentTask(db, id, outcome({ prUrl: 'https://pr/1', sessionId: 's-1', worktree: 'D:\\w', resume: 'go' }));
     if (!parent) throw new Error('parent did not finish');
-    const follow = insertFollowUp(db, parent, 'more');
-    expect(follow).toMatchObject({ parent_id: id, status: 'approved', prompt: 'more', session_id: 's-1', worktree: 'D:\\w', pr_url: 'https://pr/1' });
+    const follow = insertFollowUp(db, parent, 'more', undefined);
+    expect(follow).toMatchObject({ parent_id: id, status: 'approved', prompt: 'more', session_id: 's-1', worktree: 'D:\\w', pr_url: 'https://pr/1', model: 'opus' });
     expect(claimAgentTask(db)).toMatchObject({ id: follow.id, status: 'running' });
     finishAgentTask(db, follow.id, outcome({ result: 'did more' }));
     expect(fetchAgentTask(db, follow.id)).toMatchObject({ status: 'done', result: 'did more', pr_url: 'https://pr/1', session_id: 's-1', resume: 'go' });
+    expect(insertFollowUp(db, parent, 'faster', 'sonnet')).toMatchObject({ model: 'sonnet' });
   });
 });

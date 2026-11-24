@@ -20,6 +20,8 @@ export interface AgentTaskRow {
   worktree: string | null;
   /** A command that opens the session on the owner's computer. */
   resume: string | null;
+  /** The Claude model to run with; null for the computer's default. */
+  model: string | null;
 }
 
 export interface NewAgentTask {
@@ -28,27 +30,34 @@ export interface NewAgentTask {
   jiraKey: string | undefined;
   title: string;
   prompt: string;
+  model: string | undefined;
 }
 
 /** A task waiting for the owner's button. */
 export function insertAgentTask(db: Db, t: NewAgentTask): AgentTaskRow {
   return db
-    .prepare('INSERT INTO agent_tasks (chat_id, repo, jira_key, title, prompt, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *')
-    .get(t.chatId, t.repo, t.jiraKey ?? null, t.title, t.prompt, sqliteTime(new Date())) as AgentTaskRow;
+    .prepare('INSERT INTO agent_tasks (chat_id, repo, jira_key, title, prompt, model, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *')
+    .get(t.chatId, t.repo, t.jiraKey ?? null, t.title, t.prompt, t.model ?? null, sqliteTime(new Date())) as AgentTaskRow;
 }
 
 export function fetchAgentTask(db: Db, id: number): AgentTaskRow | undefined {
   return db.prepare('SELECT * FROM agent_tasks WHERE id = ?').get(id) as AgentTaskRow | undefined;
 }
 
-/** A follow-up message for a finished task's session: approved at once, since the owner approved the conversation. */
-export function insertFollowUp(db: Db, parent: AgentTaskRow, prompt: string): AgentTaskRow {
+/**
+ * A follow-up message for a finished task's session: approved at once, since the owner approved the conversation.
+ * It keeps the parent's model unless given another.
+ */
+export function insertFollowUp(db: Db, parent: AgentTaskRow, prompt: string, model: string | undefined): AgentTaskRow {
   return db
     .prepare(
-      `INSERT INTO agent_tasks (chat_id, repo, jira_key, title, prompt, status, pr_url, created_at, parent_id, session_id, worktree, resume)
-       VALUES (?, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, ?, ?) RETURNING *`,
+      `INSERT INTO agent_tasks (chat_id, repo, jira_key, title, prompt, status, pr_url, created_at, parent_id, session_id, worktree, resume, model)
+       VALUES (?, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
     )
-    .get(parent.chat_id, parent.repo, parent.jira_key, parent.title, prompt, parent.pr_url, sqliteTime(new Date()), parent.id, parent.session_id, parent.worktree, parent.resume) as AgentTaskRow;
+    .get(
+      parent.chat_id, parent.repo, parent.jira_key, parent.title, prompt, parent.pr_url, sqliteTime(new Date()),
+      parent.id, parent.session_id, parent.worktree, parent.resume, model ?? parent.model,
+    ) as AgentTaskRow;
 }
 
 /** The owner's answer: awaiting → approved or cancelled. False when the task was already decided. */
