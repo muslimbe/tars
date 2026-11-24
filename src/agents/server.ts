@@ -92,7 +92,7 @@ export class AgentServer {
     if (!task) return [204];
     this.o.log.info(`agent task #${task.id} claimed`);
     const session = task.parent_id === null ? {} : { session_id: task.session_id, worktree: task.worktree };
-    return [200, { id: task.id, repo: task.repo, title: task.title, prompt: agentPrompt(task), ...session }];
+    return [200, { id: task.id, repo: task.repo, title: task.title, prompt: agentPrompt(task), model: task.model, ...session }];
   }
 
   private finish(id: number, body: string | undefined): [number, unknown?] {

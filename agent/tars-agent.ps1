@@ -69,6 +69,7 @@ function Invoke-Task($task) {
   Log 'claude ishlayapti...'
   $claudeArgs = @('-p', '--output-format', 'json', '--permission-mode', 'bypassPermissions')
   if ($task.session_id) { $claudeArgs += @('--resume', $task.session_id) }
+  if ($task.model) { $claudeArgs += @('--model', $task.model) }
   Push-Location $where.path
   try {
     $output = $task.prompt | & claude @claudeArgs
@@ -95,9 +96,10 @@ $rule = '=' * 72
 
 function Show-Start($task) {
   $kind = if ($task.session_id) { '  (davomi)' } else { '' }
+  $model = if ($task.model) { "  |  model: $($task.model)" } else { '' }
   Write-Host ''
   Write-Host $rule -ForegroundColor DarkCyan
-  Write-Host " Vazifa #$($task.id)$kind  |  $($task.repo)  |  $(Get-Date -Format 'yyyy-MM-dd HH:mm')" -ForegroundColor Cyan
+  Write-Host " Vazifa #$($task.id)$kind  |  $($task.repo)$model  |  $(Get-Date -Format 'yyyy-MM-dd HH:mm')" -ForegroundColor Cyan
   Write-Host " $($task.title)" -ForegroundColor White
   Write-Host ('-' * 72) -ForegroundColor DarkCyan
 }
