@@ -33,6 +33,9 @@ approval message shows `Model: opus`, and the agent runs `claude --model opus`.
 Without a name it uses the default of the `claude` login on your computer. A
 follow-up keeps the task's model unless you name another one.
 
+Effort works the same way: "do it with opus, high effort" runs
+`claude --effort high` (low, medium, high, xhigh or max).
+
 Your computer only makes outbound HTTPS calls. Nothing on it listens for
 connections. While it is off, approved tasks wait in the queue.
 

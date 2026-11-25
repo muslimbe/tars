@@ -73,21 +73,21 @@ describe('agent tasks, end to end', () => {
     expect((await t.post('/agent/tasks/1/result', { ok: true, summary: 'again' })).status).toBe(409);
   });
 
-  it('runs with the model the owner named, and a follow-up can switch it', async () => {
+  it('runs with the model and effort the owner named, and a follow-up can switch them', async () => {
     const t = await started();
-    t.telegram.message({ id: OWNER.id }, OWNER, CREATE.replace('}', ', "model": "opus"}'));
+    t.telegram.message({ id: OWNER.id }, OWNER, CREATE.replace('}', ', "model": "opus", "effort": "high"}'));
     const approval = await t.telegram.waitFor('sendMessage', (p) => String(p.text).startsWith('🤖 Agent vazifasi #1'), 15_000);
-    expect(approval.payload.text).toBe('🤖 Agent vazifasi #1 — billing\nJira: BIL-7\nModel: opus\nFix rounding\n\nRound totals half up.');
+    expect(approval.payload.text).toBe('🤖 Agent vazifasi #1 — billing\nJira: BIL-7\nModel: opus, Effort: high\nFix rounding\n\nRound totals half up.');
     t.press(OWNER, 'agent run 1');
     await t.telegram.waitFor('editMessageText');
-    expect(await (await t.post('/agent/claim')).json()).toMatchObject({ id: 1, model: 'opus' });
+    expect(await (await t.post('/agent/claim')).json()).toMatchObject({ id: 1, model: 'opus', effort: 'high' });
     await t.post('/agent/tasks/1/result', { ok: true, summary: 'Done.', session_id: '71a8c4bf-677a-4e36-b9b4-f5c5d4f48d32', worktree: 'D:\\w' });
     await until(() => t.claudeLog().some((e) => e.kind === 'stdin' && e.line?.includes('agent_result')));
 
-    t.telegram.message({ id: OWNER.id }, OWNER, '#fake tool agent_task_continue {"task_id": 1, "message": "Tidy up.", "model": "sonnet"}');
+    t.telegram.message({ id: OWNER.id }, OWNER, '#fake tool agent_task_continue {"task_id": 1, "message": "Tidy up.", "effort": "low"}');
     const notice = await t.telegram.waitFor('sendMessage', (p) => String(p.text).startsWith('↪️'), 15_000);
-    expect(notice.payload.text).toBe('↪️ Agent davomi #2 (vazifa #1) — billing\nModel: sonnet\n\nTidy up.');
-    expect(await (await t.post('/agent/claim')).json()).toMatchObject({ id: 2, model: 'sonnet' });
+    expect(notice.payload.text).toBe('↪️ Agent davomi #2 (vazifa #1) — billing\nModel: opus, Effort: low\n\nTidy up.');
+    expect(await (await t.post('/agent/claim')).json()).toMatchObject({ id: 2, model: 'opus', effort: 'low' });
   });
 
   it('a cancelled task never reaches the agent, and a second press changes nothing', async () => {
