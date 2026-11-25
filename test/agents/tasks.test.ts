@@ -6,7 +6,7 @@ import type { AgentTaskRow } from '../../src/db/agent-tasks.ts';
 const task: AgentTaskRow = {
   id: 4, chat_id: 9, repo: 'billing', jira_key: 'BIL-12', title: 'Fix rounding', prompt: 'Round totals half up.',
   status: 'done', result: 'Done <ok> & "fine"', pr_url: 'https://github.com/a/b/pull/3', created_at: '', finished_at: null,
-  parent_id: null, session_id: null, worktree: null, resume: null, model: null,
+  parent_id: null, session_id: null, worktree: null, resume: null, model: null, effort: null,
 };
 
 describe('agent task text', () => {

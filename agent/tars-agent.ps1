@@ -70,6 +70,7 @@ function Invoke-Task($task) {
   $claudeArgs = @('-p', '--output-format', 'json', '--permission-mode', 'bypassPermissions')
   if ($task.session_id) { $claudeArgs += @('--resume', $task.session_id) }
   if ($task.model) { $claudeArgs += @('--model', $task.model) }
+  if ($task.effort) { $claudeArgs += @('--effort', $task.effort) }
   Push-Location $where.path
   try {
     $output = $task.prompt | & claude @claudeArgs
@@ -97,6 +98,7 @@ $rule = '=' * 72
 function Show-Start($task) {
   $kind = if ($task.session_id) { '  (davomi)' } else { '' }
   $model = if ($task.model) { "  |  model: $($task.model)" } else { '' }
+  if ($task.effort) { $model += "  |  effort: $($task.effort)" }
   Write-Host ''
   Write-Host $rule -ForegroundColor DarkCyan
   Write-Host " Vazifa #$($task.id)$kind  |  $($task.repo)$model  |  $(Get-Date -Format 'yyyy-MM-dd HH:mm')" -ForegroundColor Cyan

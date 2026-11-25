@@ -22,7 +22,12 @@ export interface AgentTaskRow {
   resume: string | null;
   /** The Claude model to run with; null for the computer's default. */
   model: string | null;
+  /** How hard the agent thinks (`claude --effort`); null for the computer's default. */
+  effort: AgentEffort | null;
 }
+
+export const AGENT_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+export type AgentEffort = (typeof AGENT_EFFORTS)[number];
 
 export interface NewAgentTask {
   chatId: number;
@@ -31,32 +36,37 @@ export interface NewAgentTask {
   title: string;
   prompt: string;
   model: string | undefined;
+  effort: AgentEffort | undefined;
+}
+
+/** What a follow-up says, and the model or effort it switches to; the parent's are kept otherwise. */
+export interface FollowUp {
+  prompt: string;
+  model: string | undefined;
+  effort: AgentEffort | undefined;
 }
 
 /** A task waiting for the owner's button. */
 export function insertAgentTask(db: Db, t: NewAgentTask): AgentTaskRow {
   return db
-    .prepare('INSERT INTO agent_tasks (chat_id, repo, jira_key, title, prompt, model, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *')
-    .get(t.chatId, t.repo, t.jiraKey ?? null, t.title, t.prompt, t.model ?? null, sqliteTime(new Date())) as AgentTaskRow;
+    .prepare('INSERT INTO agent_tasks (chat_id, repo, jira_key, title, prompt, model, effort, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *')
+    .get(t.chatId, t.repo, t.jiraKey ?? null, t.title, t.prompt, t.model ?? null, t.effort ?? null, sqliteTime(new Date())) as AgentTaskRow;
 }
 
 export function fetchAgentTask(db: Db, id: number): AgentTaskRow | undefined {
   return db.prepare('SELECT * FROM agent_tasks WHERE id = ?').get(id) as AgentTaskRow | undefined;
 }
 
-/**
- * A follow-up message for a finished task's session: approved at once, since the owner approved the conversation.
- * It keeps the parent's model unless given another.
- */
-export function insertFollowUp(db: Db, parent: AgentTaskRow, prompt: string, model: string | undefined): AgentTaskRow {
+/** A follow-up message for a finished task's session: approved at once, since the owner approved the conversation. */
+export function insertFollowUp(db: Db, parent: AgentTaskRow, f: FollowUp): AgentTaskRow {
   return db
     .prepare(
-      `INSERT INTO agent_tasks (chat_id, repo, jira_key, title, prompt, status, pr_url, created_at, parent_id, session_id, worktree, resume, model)
-       VALUES (?, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+      `INSERT INTO agent_tasks (chat_id, repo, jira_key, title, prompt, status, pr_url, created_at, parent_id, session_id, worktree, resume, model, effort)
+       VALUES (?, ?, ?, ?, ?, 'approved', ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
     )
     .get(
-      parent.chat_id, parent.repo, parent.jira_key, parent.title, prompt, parent.pr_url, sqliteTime(new Date()),
-      parent.id, parent.session_id, parent.worktree, parent.resume, model ?? parent.model,
+      parent.chat_id, parent.repo, parent.jira_key, parent.title, f.prompt, parent.pr_url, sqliteTime(new Date()),
+      parent.id, parent.session_id, parent.worktree, parent.resume, f.model ?? parent.model, f.effort ?? parent.effort,
     ) as AgentTaskRow;
 }
 

@@ -36,7 +36,7 @@ export class AgentApproval {
 
   /** A follow-up needs no button, but the owner still sees what the agent was told. */
   async announce(task: AgentTaskRow): Promise<void> {
-    await this.o.api.sendMessage(this.o.agentApproverId, `↪️ Agent davomi #${task.id} (vazifa #${task.parent_id}) — ${task.repo}\n${modelLine(task)}\n${task.prompt}`);
+    await this.o.api.sendMessage(this.o.agentApproverId, `↪️ Agent davomi #${task.id} (vazifa #${task.parent_id}) — ${task.repo}\n${settingsLine(task)}\n${task.prompt}`);
   }
 
   /** A Run / Cancel button was pressed. */
@@ -62,7 +62,11 @@ export class AgentApproval {
 
 function approvalText(t: AgentTaskRow): string {
   const jira = t.jira_key ? `Jira: ${t.jira_key}\n` : '';
-  return `🤖 Agent vazifasi #${t.id} — ${t.repo}\n${jira}${modelLine(t)}${t.title}\n\n${t.prompt}`;
+  return `🤖 Agent vazifasi #${t.id} — ${t.repo}\n${jira}${settingsLine(t)}${t.title}\n\n${t.prompt}`;
 }
 
-const modelLine = (t: AgentTaskRow): string => (t.model ? `Model: ${t.model}\n` : '');
+/** The model and effort the agent runs with, when they aren't the computer's defaults. */
+function settingsLine(t: AgentTaskRow): string {
+  const settings = [t.model && `Model: ${t.model}`, t.effort && `Effort: ${t.effort}`].filter(Boolean);
+  return settings.length ? `${settings.join(', ')}\n` : '';
+}

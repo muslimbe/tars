@@ -124,8 +124,8 @@ Only with `TARS_AGENT_TOKEN` set ([agent.md](agent.md)).
 
 | Tool | What it does |
 |---|---|
-| `agent_task_create` | Queue a coding task for the Claude agent on the owner's computer. It runs only after an owner presses Run on the approval message; the report comes back as `<agent_result>`. Optional `model` picks the agent's Claude model. |
-| `agent_task_continue` | Send a follow-up to a finished task's agent: it resumes the same session and worktree, with no new approval. Keeps the task's model unless given another. |
+| `agent_task_create` | Queue a coding task for the Claude agent on the owner's computer. It runs only after an owner presses Run on the approval message; the report comes back as `<agent_result>`. Optional `model` and `effort` pick the agent's Claude model and how hard it thinks. |
+| `agent_task_continue` | Send a follow-up to a finished task's agent: it resumes the same session and worktree, with no new approval. Keeps the task's model and effort unless given others. |
 
 ### Data and introspection
 
